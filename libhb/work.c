@@ -448,6 +448,7 @@ void hb_display_job_info(hb_job_t *job)
         {
             switch (job->vcodec)
             {
+                case HB_VCODEC_X264_AMF_8BIT:
                 case HB_VCODEC_X264_8BIT:
                 case HB_VCODEC_X264_10BIT:
                 case HB_VCODEC_X265_8BIT:
