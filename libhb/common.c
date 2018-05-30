@@ -19,6 +19,7 @@
 #include "h264_common.h"
 #include "h265_common.h"
 #include "encx264.h"
+#include "encx264_amf.h"
 #ifdef USE_QSV
 #include "qsv_common.h"
 #endif
@@ -42,6 +43,7 @@ static hb_error_handler_t *error_handler = NULL;
 enum
 {
     HB_GID_NONE = -1, // encoders must NEVER use it
+    HB_GID_VCODEC_H264_AMF,
     HB_GID_VCODEC_H264,
     HB_GID_VCODEC_H265,
     HB_GID_VCODEC_MPEG2,
@@ -234,6 +236,7 @@ hb_encoder_internal_t hb_video_encoders[]  =
     { { "VP3 (Theora)",        "libtheora",  NULL,                      HB_VCODEC_THEORA,                       HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_THEORA, },
     // actual encoders
     { { "H.264 (x264)",        "x264",       "H.264 (libx264)",         HB_VCODEC_X264_8BIT,         HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
+    { { "H.264 (x264_amf)",    "x264_amf",   "H.264 (AMF)",             HB_VCODEC_X264_AMF_8BIT,     HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264_AMF,   },
     { { "H.264 10-bit (x264)", "x264_10bit", "H.264 10-bit (libx264)",  HB_VCODEC_X264_10BIT,   HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "H.264 (Intel QSV)",   "qsv_h264",   "H.264 (Intel Media SDK)", HB_VCODEC_QSV_H264,     HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "H.265 (x265)",        "x265",       "H.265 (libx265)",         HB_VCODEC_X265_8BIT,      HB_MUX_AV_MP4|HB_MUX_AV_MKV,   }, NULL, 1, HB_GID_VCODEC_H265,   },
@@ -284,6 +287,12 @@ static int hb_video_encoder_is_enabled(int encoder)
         {
             const x264_api_t *api;
             api = hb_x264_api_get(hb_video_encoder_get_depth(encoder));
+            return (api != NULL);
+        }
+        case HB_VCODEC_X264_AMF_8BIT:
+        {
+            const x264_amf_api_t *api;
+            api = hb_x264_amf_api_get(hb_video_encoder_get_depth(encoder));
             return (api != NULL);
         }
 
@@ -1295,6 +1304,7 @@ void hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
          * =  0 - (6*(BIT_DEPTH-8))     (libx264)
          * =  0 - (6*(X265_DEPTH-8))    (libx265)
          */
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X265_8BIT:
             *direction   = 1;
@@ -1359,6 +1369,7 @@ const char* hb_video_quality_get_name(uint32_t codec)
 
     switch (codec)
     {
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
         case HB_VCODEC_X265_8BIT:
@@ -1411,6 +1422,7 @@ const char* const* hb_video_encoder_get_presets(int encoder)
 
     switch (encoder)
     {
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
             return x264_preset_names;
@@ -1431,6 +1443,7 @@ const char* const* hb_video_encoder_get_tunes(int encoder)
 {
     switch (encoder)
     {
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
             return x264_tune_names;
@@ -1458,6 +1471,7 @@ const char* const* hb_video_encoder_get_profiles(int encoder)
 
     switch (encoder)
     {
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
             return hb_h264_profile_names_8bit;
         case HB_VCODEC_X264_10BIT:
@@ -1488,6 +1502,7 @@ const char* const* hb_video_encoder_get_levels(int encoder)
 
     switch (encoder)
     {
+        case HB_VCODEC_X264_AMF_8BIT:
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
             return hb_h264_level_names;

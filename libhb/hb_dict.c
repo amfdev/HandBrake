@@ -826,6 +826,8 @@ hb_dict_t * hb_encopts_to_dict(const char * encopts, int encoder)
                 // x264 has multiple names for some options
                 if (encoder & HB_VCODEC_X264_MASK)
                     name = hb_x264_encopt_name(name);
+                if (encoder & HB_VCODEC_X264_AMF_8BIT)
+                    name = hb_x264_amf_encopt_name(name);
 #ifdef USE_X265
                 // x265 has multiple names for some options
                 if (encoder & HB_VCODEC_X265_MASK)

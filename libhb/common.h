@@ -516,6 +516,7 @@ struct hb_job_s
 #define HB_VCODEC_QSV_H265     HB_VCODEC_QSV_H265_8BIT
 #define HB_VCODEC_QSV_MASK     0x0000F00
 #define HB_VCODEC_X264_8BIT    0x0010000
+#define HB_VCODEC_X264_AMF_8BIT     0x0010100
 #define HB_VCODEC_X264         HB_VCODEC_X264_8BIT
 #define HB_VCODEC_X264_10BIT   0x0020000
 #define HB_VCODEC_X264_MASK    0x0030000
@@ -1216,6 +1217,7 @@ extern hb_work_object_t hb_decpgssub;
 extern hb_work_object_t hb_encavcodec;
 extern hb_work_object_t hb_encqsv;
 extern hb_work_object_t hb_encx264;
+extern hb_work_object_t hb_encx264_amf;
 extern hb_work_object_t hb_enctheora;
 extern hb_work_object_t hb_encx265;
 extern hb_work_object_t hb_decavcodeca;
@@ -1370,9 +1372,15 @@ char * hb_x264_param_unparse(int bit_depth, const char *x264_preset,
                              const char *x264_tune, const char *x264_encopts,
                              const char *h264_profile, const char *h264_level,
                              int width, int height);
+// unparse a set of x264 settings to an HB encopts string
+char * hb_x264_amf_param_unparse(int bit_depth, const char *x264_preset,
+                             const char *x264_tune, const char *x264_encopts,
+                             const char *h264_profile, const char *h264_level,
+                             int width, int height);
 
 // x264 option name/synonym helper
 const char * hb_x264_encopt_name( const char * name );
+const char * hb_x264_amf_encopt_name( const char * name );
 
 #ifdef USE_X265
 // x265 option name/synonym helper
