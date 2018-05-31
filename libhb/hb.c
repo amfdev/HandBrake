@@ -10,6 +10,7 @@
 #include "hb.h"
 #include "hbffmpeg.h"
 #include "encx264.h"
+#include "encx264_amf.h"
 #include "libavfilter/avfilter.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -1717,6 +1718,7 @@ int hb_global_init()
 #endif
 
     hb_x264_global_init();
+    hb_x264_amf_global_init();
     hb_common_global_init();
 
     /*
