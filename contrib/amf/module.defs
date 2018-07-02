@@ -1,0 +1,7 @@
+$(eval $(call import.MODULE.defs,AMF,amf))
+$(eval $(call import.CONTRIB.defs,AMF))
+
+AMF.FETCH.url     = http://localhost/files/amf.tar.gz
+AMF.FETCH.sha256  = 2f6ade2465bd8b3c2c83a3c61356ea71ce4a7d65a231f74f50067eaa2aa00b3b
+AMF.FETCH.basename  = amf.tar.gz
+AMF.EXTRACT.tarbase = amf
