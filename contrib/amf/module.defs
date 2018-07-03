@@ -1,7 +1,7 @@
 $(eval $(call import.MODULE.defs,AMF,amf))
 $(eval $(call import.CONTRIB.defs,AMF))
 
-AMF.FETCH.url     = http://localhost/files/amf.tar.gz
-AMF.FETCH.sha256  = 2f6ade2465bd8b3c2c83a3c61356ea71ce4a7d65a231f74f50067eaa2aa00b3b
+AMF.FETCH.url     = https://github.com/GPUOpen-LibrariesAndSDKs/AMF/archive/v1.4.7.0.tar.gz
+AMF.FETCH.sha256  = EA91C8627FB16EAAF66C9C12B88A9FB8969879C244F782E807D2FB78F8F323BD
 AMF.FETCH.basename  = amf.tar.gz
 AMF.EXTRACT.tarbase = amf
