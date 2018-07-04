@@ -5,3 +5,10 @@ AMF.FETCH.url     = https://github.com/GPUOpen-LibrariesAndSDKs/AMF/archive/v1.4
 AMF.FETCH.sha256  = ea91c8627fb16eaaf66c9c12b88a9fb8969879c244f782e807d2fb78f8f323bd
 AMF.FETCH.basename  = amf.tar.gz
 AMF.EXTRACT.tarbase = AMF-1.4.7.0
+
+AMF.FETCH =
+AMF.VERIFY = $(TOUCH.exe) $@
+AMF.EXTRACT = $(TOUCH.exe) $@
+AMF.PATCH = $(TOUCH.exe) $@
+AMF.CONFIGURE = $(TOUCH.exe) $@
+AMF.BUILD = $(TOUCH.exe) $@
