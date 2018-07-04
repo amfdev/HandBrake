@@ -1025,4 +1025,19 @@ This will not affect your current settings in the Subtitle tab.</value>
   <data name="OptionsView_ShowPreviewOnSummaryTab" xml:space="preserve">
     <value>Show previews on summary tab.</value>
   </data>
+  <data name="MainView_SubtitleBeforeScanError" xml:space="preserve">
+    <value>Please choose a source to encode before trying to import a subtitle file.</value>
+  </data>
+  <data name="OptionsView_EnableNvencEncoding" xml:space="preserve">
+    <value>Enable Nvidia NVENC Encoder</value>
+  </data>
+  <data name="OptionsView_EnableQuicksyncEncoding" xml:space="preserve">
+    <value>Enable Intel QuickSync Encoder</value>
+  </data>
+  <data name="OptionsView_EnableVceEncoding" xml:space="preserve">
+    <value>Enable AMD VCE Encoder</value>
+  </data>
+  <data name="Options_Encoding" xml:space="preserve">
+    <value>Encoding</value>
+  </data>
 </root>

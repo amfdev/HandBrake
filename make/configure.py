@@ -1304,6 +1304,9 @@ def createCLI():
     h = IfHost( 'enable Intel Quick Sync Video (QSV) hardware acceleration. (Windows and Linux only)', '*-*-linux*', '*-*-mingw*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--enable-qsv', default=False, action='store_true', help=h )
 
+    h = IfHost( 'enable AMD VCE hardware acceleration. (Windows only)', '*-*-mingw*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--enable-vce', default=False, action='store_true', help=h )
+
     h = IfHost( 'enable x265 video encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--enable-x265', dest="enable_x265", default=True, action='store_true', help=h )
     grp.add_option( '--disable-x265', dest="enable_x265", action='store_false' )
@@ -1312,9 +1315,13 @@ def createCLI():
     grp.add_option( '--enable-fdk-aac', dest="enable_fdk_aac", default=False, action='store_true', help=h )
     grp.add_option( '--disable-fdk-aac', dest="enable_fdk_aac", action='store_false' )
 
-    h = IfHost( 'enable Libav AAC audio encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--enable-libav-aac', dest="enable_libav_aac", default=not host.match( '*-*-darwin*' ), action='store_true', help=h )
-    grp.add_option( '--disable-libav-aac', dest="enable_libav_aac", action='store_false' )
+    h = IfHost( 'enable FFmpeg AAC audio encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--enable-ffmpeg-aac', dest="enable_ffmpeg_aac", default=not host.match( '*-*-darwin*' ), action='store_true', help=h )
+    grp.add_option( '--disable-ffmpeg-aac', dest="enable_ffmpeg_aac", action='store_false' )
+
+    h = IfHost( 'enable Nvidia NVEnc video encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--enable-nvenc', dest="enable_nvenc", default=not (host.match( '*-*-darwin*' ) or host.match( '*-*-freebsd*' )), action='store_true', help=h )
+
 
     cli.add_option_group( grp )
 
@@ -1340,20 +1347,7 @@ def createCLI():
     h = IfHost( 'specify Mac OS X deployment target for Xcode builds', '*-*-darwin*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--minver', default=None, action='store', metavar='VER',
         help=h )
-
-    h = IfHost( 'Build and use local yasm', '*-*-*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--enable-local-yasm', default=False, action='store_true', help=h )
-    h = IfHost( 'Build and use local autotools', '*-*-*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--enable-local-autotools', default=False, action='store_true', help=h )
-    h = IfHost( 'Build and use local cmake', '*-*-*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--enable-local-cmake', default=False, action='store_true', help=h )
-    h = IfHost( 'Build and use local pkg-config', '*-*-darwin*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--enable-local-pkgconfig', default=False, action='store_true', help=h )
-
-    h = IfHost( 'Build extra contribs for flatpak packaging', '*-*-linux*', '*-*-freebsd*', none=optparse.SUPPRESS_HELP ).value
-    grp.add_option( '--flatpak', default=False, action='store_true', help=h )
     cli.add_option_group( grp )
-
 
     ## add Xcode options
     if host.match( '*-*-darwin*' ):
@@ -1383,6 +1377,9 @@ def createCLI():
     grp = OptionGroup( cli, 'Build Options' )
     grp.add_option( '--snapshot', default=False, action='store_true',
                     help='Force a snapshot build' )
+
+    h = IfHost( 'Build extra contribs for flatpak packaging', '*-*-linux*', '*-*-freebsd*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--flatpak', default=False, action='store_true', help=h )
     cli.add_option_group( grp )
 
     return cli
@@ -1513,29 +1510,28 @@ try:
 
     ## create tools in a scope
     class Tools:
-        ar    = ToolProbe( 'AR.exe',    'ar' )
-        cp    = ToolProbe( 'CP.exe',    'cp' )
+        ar    = ToolProbe( 'AR.exe',    'ar', abort=True )
+        cp    = ToolProbe( 'CP.exe',    'cp', abort=True )
         gcc   = ToolProbe( 'GCC.gcc',   'gcc', IfHost( 'gcc-4', '*-*-cygwin*' ))
 
         if host.match( '*-*-darwin*' ):
-            gmake = ToolProbe( 'GMAKE.exe', 'make', 'gmake' )
+            gmake = ToolProbe( 'GMAKE.exe', 'make', 'gmake', abort=True )
         else:
-            gmake = ToolProbe( 'GMAKE.exe', 'gmake', 'make' )
+            gmake = ToolProbe( 'GMAKE.exe', 'gmake', 'make', abort=True )
 
-        m4       = ToolProbe( 'M4.exe',       'gm4', 'm4' )
-        mkdir    = ToolProbe( 'MKDIR.exe',    'mkdir' )
-        patch    = ToolProbe( 'PATCH.exe',    'gpatch', 'patch' )
-        rm       = ToolProbe( 'RM.exe',       'rm' )
-        ranlib   = ToolProbe( 'RANLIB.exe',   'ranlib' )
-        strip    = ToolProbe( 'STRIP.exe',    'strip' )
-        tar      = ToolProbe( 'TAR.exe',      'gtar', 'tar' )
+        m4       = ToolProbe( 'M4.exe',       'gm4', 'm4', abort=True )
+        mkdir    = ToolProbe( 'MKDIR.exe',    'mkdir', abort=True )
+        patch    = ToolProbe( 'PATCH.exe',    'gpatch', 'patch', abort=True )
+        rm       = ToolProbe( 'RM.exe',       'rm', abort=True )
+        ranlib   = ToolProbe( 'RANLIB.exe',   'ranlib', abort=True )
+        strip    = ToolProbe( 'STRIP.exe',    'strip', abort=True )
+        tar      = ToolProbe( 'TAR.exe',      'gtar', 'tar', abort=True )
         nasm     = ToolProbe( 'NASM.exe',     'nasm', abort=False, minversion=[2,13,0] )
-        yasm     = ToolProbe( 'YASM.exe',     'yasm', abort=False, minversion=[1,2,0] )
-        autoconf = ToolProbe( 'AUTOCONF.exe', 'autoconf', abort=False )
-        automake = ToolProbe( 'AUTOMAKE.exe', 'automake', abort=False )
-        cmake    = ToolProbe( 'CMAKE.exe',    'cmake', abort=False )
-        libtool  = ToolProbe( 'LIBTOOL.exe',  'libtool', abort=False )
-        pkgconfig = ToolProbe( 'PKGCONFIG.exe', 'pkg-config', abort=False )
+        autoconf = ToolProbe( 'AUTOCONF.exe', 'autoconf', abort=True )
+        automake = ToolProbe( 'AUTOMAKE.exe', 'automake', abort=True )
+        cmake    = ToolProbe( 'CMAKE.exe',    'cmake', abort=True )
+        libtool  = ToolProbe( 'LIBTOOL.exe',  'libtool', abort=True )
+        pkgconfig = ToolProbe( 'PKGCONFIG.exe', 'pkg-config', abort=True )
 
         xcodebuild = ToolProbe( 'XCODEBUILD.exe', 'xcodebuild', abort=False )
         lipo       = ToolProbe( 'LIPO.exe',       'lipo', abort=False )
@@ -1596,31 +1592,6 @@ try:
             raise AbortError( 'error: nasm missing\n' )
         elif Tools.nasm.version.inadequate():
             raise AbortError( 'error: minimum required nasm version is %s and %s is %s\n' % ('.'.join([str(i) for i in Tools.nasm.version.minversion]),Tools.nasm.pathname,Tools.nasm.version.svers) )
-
-    ## enable local yasm when yasm probe fails or version is too old
-    ## x264 requires 1.2.0+
-    if not options.enable_local_yasm:
-        if Tools.yasm.fail:
-            stdout.write( 'note: enabling local yasm: missing system yasm\n' )
-            options.enable_local_yasm = True
-        elif Tools.yasm.version.inadequate():
-            stdout.write( 'note: enabling local yasm: minimum required version is %s and %s is %s\n' % ('.'.join([str(i) for i in Tools.yasm.version.minversion]),Tools.yasm.pathname,Tools.yasm.version.svers) )
-            options.enable_local_yasm = True
-
-    ## enable local autotools when any of { autoconf, automake, libtool } probe fails
-    if not options.enable_local_autotools and (Tools.autoconf.fail or Tools.automake.fail or Tools.libtool.fail):
-        stdout.write( 'note: enabling local autotools\n' )
-        options.enable_local_autotools = True
-
-    ## enable local cmake when cmake probe fails
-    if not options.enable_local_cmake and (Tools.cmake.fail):
-        stdout.write( 'note: enabling local cmake\n' )
-        options.enable_local_cmake = True
-
-    ## enable local pkg-config when probe fails
-    if not options.enable_local_pkgconfig and Tools.pkgconfig.fail:
-        stdout.write( 'note: enabling local pkgconfig\n' )
-        options.enable_local_pkgconfig = True
 
     if build.system == 'mingw':
         dlfcn_test = """
@@ -1685,6 +1656,18 @@ int main ()
 """
         libz = LDProbe( 'static zlib', '%s -static' % Tools.gcc.pathname, '-lz', libz_test )
         libz.run()
+
+        xz_test = """
+#include <stdio.h>
+#include <lzma.h>
+int main ()
+{
+  lzma_stream_decoder(NULL, 0, 0);
+  return 0;
+}
+"""
+        xz = LDProbe( 'static xz', '%s -static' % Tools.gcc.pathname, '-llzma', xz_test )
+        xz.run()
 
         iconv_test = """
 #include <stdio.h>
@@ -1854,10 +1837,6 @@ int main()
     doc.add( 'PREFIX/', cfg.prefix_final + os.sep )
 
     doc.addBlank()
-    doc.add( 'FEATURE.local_yasm', int( options.enable_local_yasm ))
-    doc.add( 'FEATURE.local_autotools', int( options.enable_local_autotools ))
-    doc.add( 'FEATURE.local_cmake', int( options.enable_local_cmake ))
-    doc.add( 'FEATURE.local_pkgconfig', int( options.enable_local_pkgconfig ))
     doc.add( 'FEATURE.asm',        'disabled' )
     doc.add( 'FEATURE.flatpak',    int( options.flatpak ))
     doc.add( 'FEATURE.gtk',        int( not options.disable_gtk ))
@@ -1865,10 +1844,12 @@ int main()
     doc.add( 'FEATURE.gtk.mingw',  int( options.enable_gtk_mingw ))
     doc.add( 'FEATURE.gst',        int( not options.disable_gst ))
     doc.add( 'FEATURE.fdk_aac',    int( options.enable_fdk_aac ))
-    doc.add( 'FEATURE.libav_aac',  int( options.enable_libav_aac or build.system == 'mingw' ))
+    doc.add( 'FEATURE.ffmpeg_aac', int( options.enable_ffmpeg_aac or build.system == 'mingw' ))
     doc.add( 'FEATURE.qsv',        int( options.enable_qsv ))
+    doc.add( 'FEATURE.vce',        int( options.enable_vce ))
     doc.add( 'FEATURE.xcode',      int( not (Tools.xcodebuild.fail or options.disable_xcode or options.cross) ))
     doc.add( 'FEATURE.x265',       int( options.enable_x265 ))
+    doc.add( 'FEATURE.nvenc',      int( options.enable_nvenc ))
 
     if not Tools.xcodebuild.fail and not options.disable_xcode:
         doc.addBlank()
@@ -1893,6 +1874,8 @@ int main()
             doc.add( 'HAS.bz2', 1 )
         if not libz.fail:
             doc.add( 'HAS.libz', 1 )
+        if not xz.fail:
+            doc.add( 'HAS.xz', 1 )
         if not iconv.fail:
             doc.add( 'HAS.iconv', 1 )
         if not regex.fail:
@@ -1940,27 +1923,14 @@ int main()
     elif build.match( 'amd64-*' ):
         doc.add( 'LIBHB.GCC.D', 'ARCH_X86_64', append=True )
 
-    if options.enable_asm and ( not Tools.yasm.fail or options.enable_local_yasm ):
+    if options.enable_asm and ( not Tools.nasm.fail ):
         asm = ''
         if build.match( 'i?86-*' ):
             asm = 'x86'
             doc.add( 'LIBHB.GCC.D', 'HAVE_MMX', append=True )
-            doc.add( 'LIBHB.YASM.D', 'ARCH_X86', append=True )
-            if build.match( '*-*-darwin*' ):
-                doc.add( 'LIBHB.YASM.f', 'macho32' )
-            else:
-                doc.add( 'LIBHB.YASM.f', 'elf32' )
-            doc.add( 'LIBHB.YASM.m', 'x86' )
         elif build.match( 'x86_64-*' ) or build.match( 'amd64-*' ):
             asm = 'x86'
             doc.add( 'LIBHB.GCC.D', 'HAVE_MMX ARCH_X86_64', append=True )
-            if build.match( '*-*-darwin*' ):
-                doc.add( 'LIBHB.YASM.D', 'ARCH_X86_64 PIC', append=True )
-                doc.add( 'LIBHB.YASM.f', 'macho64' )
-            else:
-                doc.add( 'LIBHB.YASM.D', 'ARCH_X86_64', append=True )
-                doc.add( 'LIBHB.YASM.f', 'elf64' )
-            doc.add( 'LIBHB.YASM.m', 'amd64' )
         doc.update( 'FEATURE.asm', asm )
 
     ## add exports to make

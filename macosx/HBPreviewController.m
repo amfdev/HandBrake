@@ -12,7 +12,6 @@
 #import "HBPreviewView.h"
 
 #import "HBPlayer.h"
-#import "HBQTKitPlayer.h"
 #import "HBAVPlayer.h"
 
 #import "HBPictureHUDController.h"
@@ -167,7 +166,7 @@
     else
     {
         self.previewView.image = nil;
-        self.window.title = NSLocalizedString(@"Preview", nil);
+        self.window.title = NSLocalizedString(@"Preview", @"Preview -> window title");
     }
     [self switchStateToHUD:self.pictureHUD];
 }
@@ -249,16 +248,16 @@
         NSMutableString *scaleString = [NSMutableString string];
         if (scale * 100.0 != 100)
         {
-            [scaleString appendFormat:NSLocalizedString(@"(%.0f%% actual size)", nil), scale * 100.0];
+            [scaleString appendFormat:NSLocalizedString(@"(%.0f%% actual size)", @"Preview -> size info label"), scale * 100.0];
         }
         else
         {
-            [scaleString appendString:NSLocalizedString(@"(Actual size)", nil)];
+            [scaleString appendString:NSLocalizedString(@"(Actual size)", @"Preview -> size info label")];
         }
 
         if (self.previewView.fitToView == YES)
         {
-            [scaleString appendString:NSLocalizedString(@" Scaled To Screen", nil)];
+            [scaleString appendString:NSLocalizedString(@" Scaled To Screen", @"Preview -> size info label")];
         }
 
         // Set the info fields in the hud controller
@@ -266,7 +265,7 @@
         self.pictureHUD.scale = scaleString;
 
         // Set the info field in the window title bar
-        self.window.title = [NSString stringWithFormat:NSLocalizedString(@"Preview - %@ %@", nil),
+        self.window.title = [NSString stringWithFormat:NSLocalizedString(@"Preview - %@ %@", @"Preview -> window title format"),
                              self.generator.info, scaleString];
     }
 }
@@ -451,7 +450,7 @@
         CFRelease(fPreviewImage);
     }
 
-    if (self.previewView.fitToView == NO && !(self.window.styleMask & NSFullScreenWindowMask))
+    if (self.previewView.fitToView == NO && !(self.window.styleMask & NSWindowStyleMaskFullScreen))
     {
         // Get the optimal view size for the image
         NSSize imageScaledSize = [self.generator imageSize];
@@ -474,7 +473,7 @@
     else
     {
         self.previewView.fitToView = YES;
-        if (!(self.window.styleMask & NSFullScreenWindowMask))
+        if (!(self.window.styleMask & NSWindowStyleMaskFullScreen))
         {
             [self.window setFrame:self.window.screen.visibleFrame display:YES animate:YES];
         }
@@ -526,33 +525,24 @@
 
 - (void)showAlert:(NSURL *)fileURL;
 {
-    NSAlert *alert = [NSAlert alertWithMessageText:NSLocalizedString(@"HandBrake can't open the preview.", nil)
-                                     defaultButton:NSLocalizedString(@"Open in external player", nil)
-                                   alternateButton:NSLocalizedString(@"Cancel", nil)
-                                       otherButton:nil
-                         informativeTextWithFormat:NSLocalizedString(@"HandBrake can't playback this combination of video/audio/container format. Do you want to open it in an external player?", nil)];
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = NSLocalizedString(@"HandBrake can't open the preview.", @"Preview -> live preview alert message");
+    alert.informativeText = NSLocalizedString(@"HandBrake can't playback this combination of video/audio/container format. Do you want to open it in an external player?", @"Preview -> live preview alert informative text");
+    [alert addButtonWithTitle:NSLocalizedString(@"Open in external player", @"Preview -> live preview alert default button")];
+    [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"Preview -> live preview alert alternate button")];
 
-    [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:@selector(alertDidEnd:returnCode:contextInfo:) contextInfo:(void *)CFBridgingRetain(fileURL)];
-}
-
-- (void)alertDidEnd:(NSAlert *)alert
-         returnCode:(NSInteger)returnCode
-        contextInfo:(void *)contextInfo
-{
-    NSURL *fileURL = CFBridgingRelease(contextInfo);
-    if (returnCode == NSModalResponseOK)
+    [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse returnCode)
     {
-        [[NSWorkspace sharedWorkspace] openURL:fileURL];
-    }
+        if (returnCode == NSAlertFirstButtonReturn)
+        {
+            [[NSWorkspace sharedWorkspace] openURL:fileURL];
+        }
+    }];
 }
 
 - (void)setUpPlaybackOfURL:(NSURL *)fileURL playerClass:(Class)class;
 {
-#if __HB_QTKIT_PLAYER_AVAILABLE
-    NSArray<Class> *availablePlayerClasses = @[[HBAVPlayer class], [HBQTKitPlayer class]];
-#else
     NSArray<Class> *availablePlayerClasses = @[[HBAVPlayer class]];
-#endif
 
     self.player = [[class alloc] initWithURL:fileURL];
 

@@ -14,10 +14,10 @@ TEST.GCC.L = $(CONTRIB.build/)lib
 TEST.libs = $(LIBHB.a)
 
 TEST.GCC.l = \
-        ass avresample avformat avcodec avfilter avutil mp3lame dvdnav \
+        ass avformat avfilter avcodec avutil avresample swresample postproc mp3lame dvdnav \
         dvdread fribidi \
         samplerate swscale vpx theoraenc theoradec vorbis vorbisenc ogg x264 \
-        bluray freetype xml2 bz2 z jansson harfbuzz opus
+        bluray freetype xml2 bz2 z jansson harfbuzz opus speex lzma
 
 ifeq (,$(filter $(BUILD.system),darwin cygwin mingw))
     TEST.GCC.l += fontconfig
@@ -28,6 +28,14 @@ ifeq (1,$(FEATURE.qsv))
 ifeq ($(BUILD.system),linux)
     TEST.GCC.l += va va-drm
 endif
+endif
+
+ifeq (1,$(FEATURE.vce))
+    TEST.GCC.D += USE_VCE
+endif
+
+ifeq (1,$(FEATURE.nvenc))
+    TEST.GCC.D += USE_NVENC
 endif
 
 ifeq (1,$(FEATURE.x265))
@@ -41,14 +49,25 @@ endif
 TEST.GCC.l += $(foreach m,$(MODULES.NAMES),$($m.OSL.libs))
 
 TEST.install.exe = $(DESTDIR)$(PREFIX/)bin/$(notdir $(TEST.exe))
+ifeq (1,$(FEATURE.flatpak))
+    TEST.appdata.template = $(TEST.src/)fr.handbrake.HandBrakeCLI.appdata.xml.template
+    TEST.appdata = $(TEST.build/)fr.handbrake.HandBrakeCLI.appdata.xml
+    TEST.install.appdata = $(DESTDIR)$(PREFIX/)share/metainfo/$(notdir $(TEST.appdata))
+endif
 
 ###############################################################################
 
 TEST.out += $(TEST.c.o)
 TEST.out += $(TEST.exe)
+ifeq (1,$(FEATURE.flatpak))
+    TEST.out += $(TEST.appdata)
+endif
 
 BUILD.out += $(TEST.out)
 BUILD.out += $(TEST.install.exe)
+ifeq (1,$(FEATURE.flatpak))
+    BUILD.out += $(TEST.install.appdata)
+endif
 
 ###############################################################################
 
@@ -78,7 +97,7 @@ ifeq (1,$(HAS.pthread))
 else
     TEST.GCC.l += pthreadGC2
 endif
-    TEST.GCC.l += iconv ws2_32 regex uuid ole32
+    TEST.GCC.l += bcrypt iconv ws2_32 regex uuid ole32
     TEST.GCC.D += PTW32_STATIC_LIB
     TEST.GCC.args.extra.exe++ += -static
 endif #   (1-mingw,$(BUILD.cross)-$(BUILD.system))

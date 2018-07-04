@@ -310,6 +310,9 @@ static int decavcodecaInit( hb_work_object_t * w, hb_job_t * job )
         hb_log("decavcodecaInit: avcodec_open failed");
         return 1;
     }
+    pv->context->pkt_timebase.num = pv->audio->config.in.timebase.num;
+    pv->context->pkt_timebase.den = pv->audio->config.in.timebase.den;
+
     // avcodec_open populates av_opts with the things it didn't recognize.
     AVDictionaryEntry *t = NULL;
     while ((t = av_dict_get(av_opts, "", t, AV_DICT_IGNORE_SUFFIX)) != NULL)
@@ -377,7 +380,7 @@ static void closePrivData( hb_work_private_t ** ppv )
             /*
              * FIXME: knowingly leaked.
              *
-             * If we're using our Libav QSV wrapper, qsv_decode_end() will call
+             * If we're using our FFmpeg QSV wrapper, qsv_decode_end() will call
              * MFXClose() on the QSV session. Even if decoding is complete, we
              * still need that session for QSV filtering and/or encoding, so we
              * we can't close the context here until we implement a proper fix.
@@ -390,13 +393,12 @@ static void closePrivData( hb_work_private_t ** ppv )
             //if (!(pv->qsv.decode && pv->job != NULL && (pv->job->vcodec & HB_VCODEC_QSV_MASK)))
 #endif
             {
-                hb_avcodec_close(pv->context);
+                hb_avcodec_free_context(&pv->context);
             }
         }
         if ( pv->context )
         {
-            av_freep( &pv->context->extradata );
-            av_freep( &pv->context );
+            hb_avcodec_free_context(&pv->context);
         }
         hb_audio_resample_free(pv->resample);
 
@@ -658,6 +660,12 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
         av_dict_free( &av_opts );
         return -1;
     }
+    if (audio != NULL)
+    {
+        context->pkt_timebase.num = audio->config.in.timebase.num;
+        context->pkt_timebase.den = audio->config.in.timebase.den;
+    }
+
     av_dict_free( &av_opts );
     unsigned char *parse_buffer;
     int parse_pos, parse_buffer_size;
@@ -739,18 +747,28 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
                     info->sample_bit_depth  = context->bits_per_raw_sample;
 
                     int bps = av_get_bits_per_sample(context->codec_id);
-                    int channels = av_get_channel_layout_nb_channels(frame->channel_layout);
-                    if (bps > 0)
+                    int channels;
+                    if (frame->channel_layout != 0)
                     {
-                        info->bitrate = bps * channels * info->rate.num;
-                    }
-                    else if (context->bit_rate > 0)
-                    {
-                        info->bitrate = context->bit_rate;
+                        channels = av_get_channel_layout_nb_channels(
+                                                        frame->channel_layout);
                     }
                     else
                     {
-                        info->bitrate = 1;
+                        channels = frame->channels;
+                    }
+
+                    info->bitrate = bps * channels * info->rate.num;
+                    if (info->bitrate <= 0)
+                    {
+                        if (context->bit_rate > 0)
+                        {
+                            info->bitrate = context->bit_rate;
+                        }
+                        else
+                        {
+                            info->bitrate = 1;
+                        }
                     }
 
                     if (truehd_mono)
@@ -780,6 +798,13 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
                         {
                             info->channel_layout = frame->channel_layout;
                         }
+                    }
+                    if (info->channel_layout == 0)
+                    {
+                        // Channel layout was not set.  Guess a layout based
+                        // on number of channels.
+                        info->channel_layout = av_get_default_channel_layout(
+                                                            frame->channels);
                     }
                     if (context->codec_id == AV_CODEC_ID_AC3 ||
                         context->codec_id == AV_CODEC_ID_EAC3)
@@ -821,9 +846,7 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
 
     if ( parser != NULL )
         av_parser_close( parser );
-    hb_avcodec_close( context );
-    av_freep( &context->extradata );
-    av_freep( &context );
+    hb_avcodec_free_context(&context);
     return result;
 }
 
@@ -1294,8 +1317,12 @@ static void filter_video(hb_work_private_t *pv)
     {
         int result;
 
-        av_buffersrc_add_frame(pv->video_filters.input, pv->frame);
-        result = av_buffersink_get_frame(pv->video_filters.output, pv->frame);
+        result = av_buffersrc_add_frame(pv->video_filters.input, pv->frame);
+        if (result < 0) {
+            hb_error("filter_video: failed to add frame");
+        } else {
+            result = av_buffersink_get_frame(pv->video_filters.output, pv->frame);
+        }
         while (result >= 0)
         {
             hb_buffer_t * buf = copy_frame(pv);
@@ -1650,6 +1677,8 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             hb_log( "decavcodecvInit: avcodec_open failed" );
             return 1;
         }
+        pv->context->pkt_timebase.num = pv->title->video_timebase.num;
+        pv->context->pkt_timebase.den = pv->title->video_timebase.den;
         av_dict_free( &av_opts );
 
         pv->video_codec_opened = 1;
@@ -1825,6 +1854,8 @@ static int decavcodecvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             hb_buffer_close( &in );
             return HB_WORK_OK;
         }
+        pv->context->pkt_timebase.num = pv->title->video_timebase.num;
+        pv->context->pkt_timebase.den = pv->title->video_timebase.den;
         av_dict_free( &av_opts );
         pv->video_codec_opened = 1;
     }
@@ -2101,9 +2132,7 @@ static void decavcodecvFlush( hb_work_object_t *w )
         if ( pv->title->opaque_priv == NULL )
         {
             pv->video_codec_opened = 0;
-            hb_avcodec_close( pv->context );
-            av_freep( &pv->context->extradata );
-            av_freep( &pv->context );
+            hb_avcodec_free_context(&pv->context);
             if ( pv->parser )
             {
                 av_parser_close(pv->parser);
@@ -2138,7 +2167,8 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
     // libav does not supply timestamps for wmapro audio (possibly others)
     // if there is an input timestamp, initialize next_pts
     if (pv->next_pts     == (int64_t)AV_NOPTS_VALUE &&
-        packet_info->pts !=          AV_NOPTS_VALUE)
+        packet_info      != NULL &&
+        packet_info->pts != AV_NOPTS_VALUE)
     {
         pv->next_pts = packet_info->pts;
     }
@@ -2203,6 +2233,7 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
         else
         {
             AVFrameSideData *side_data;
+            uint64_t         channel_layout;
             if ((side_data =
                  av_frame_get_side_data(pv->frame,
                                 AV_FRAME_DATA_DOWNMIX_INFO)) != NULL)
@@ -2227,8 +2258,13 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
                                                  center_mix_level,
                                                  downmix_info->lfe_mix_level);
             }
-            hb_audio_resample_set_channel_layout(pv->resample,
-                                                 pv->frame->channel_layout);
+            channel_layout = pv->frame->channel_layout;
+            if (channel_layout == 0)
+            {
+                channel_layout = av_get_default_channel_layout(
+                                                        pv->frame->channels);
+            }
+            hb_audio_resample_set_channel_layout(pv->resample, channel_layout);
             hb_audio_resample_set_sample_fmt(pv->resample,
                                              pv->frame->format);
             if (hb_audio_resample_update(pv->resample))
@@ -2238,7 +2274,8 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
                 av_packet_unref(&avp);
                 return;
             }
-            out = hb_audio_resample(pv->resample, pv->frame->extended_data,
+            out = hb_audio_resample(pv->resample,
+                                    (const uint8_t **)pv->frame->extended_data,
                                     pv->frame->nb_samples);
             if (out != NULL && pv->drop_samples > 0)
             {

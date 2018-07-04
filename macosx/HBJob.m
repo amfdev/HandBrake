@@ -178,8 +178,8 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
         {
             if (outError)
             {
-                *outError = [NSError errorWithDomain:@"HBError" code:0 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Invalid name", nil),
-                                                                                  NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"The file name can't contain the / character.", nil)}];
+                *outError = [NSError errorWithDomain:@"HBError" code:0 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Invalid name", @"HBJob -> invalid name error description"),
+                                                                                  NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"The file name can't contain the / character.", @"HBJob -> invalid name error recovery suggestion")}];
             }
             return NO;
         }
@@ -426,7 +426,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
         decodeObjectOrFail(_uuid, NSString);
 
 #ifdef __SANDBOX_ENABLED__
-        _fileURLBookmark = [HBCodingUtilities decodeObjectOfClass:[NSData class] forKey:@"_fileURLBookmark" decoder:decoder];
+        _fileURLBookmark = [decoder decodeObjectOfClass:[NSData class] forKey:@"_fileURLBookmark"];
 
         if (_fileURLBookmark)
         {
@@ -438,7 +438,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
             decodeObjectOrFail(_fileURL, NSURL);
         }
 
-        _outputURLFolderBookmark = [HBCodingUtilities decodeObjectOfClass:[NSData class] forKey:@"_outputURLFolderBookmark" decoder:decoder];
+        _outputURLFolderBookmark = [decoder decodeObjectOfClass:[NSData class] forKey:@"_outputURLFolderBookmark"];
 
         if (_outputURLFolderBookmark)
         {

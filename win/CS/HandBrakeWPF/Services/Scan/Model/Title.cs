@@ -14,7 +14,7 @@ namespace HandBrakeWPF.Services.Scan.Model
     using System.IO;
     using System.Linq;
 
-    using HandBrake.ApplicationServices.Interop.Model;
+    using HandBrake.Interop.Interop.Model;
 
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Utilities;
@@ -181,7 +181,7 @@ namespace HandBrakeWPF.Services.Scan.Model
         /// <param name="startPoint">The Start Point (Chapters)</param>
         /// <param name="endPoint">The End Point (Chapters)</param>
         /// <returns>A Timespan</returns>
-        public TimeSpan CalculateDuration(int startPoint, int endPoint)
+        public TimeSpan CalculateDuration(long startPoint, long endPoint)
         {
             IEnumerable<Chapter> chapers =
                 this.Chapters.Where(c => c.ChapterNumber >= startPoint && c.ChapterNumber <= endPoint);

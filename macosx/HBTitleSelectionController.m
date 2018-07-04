@@ -6,7 +6,7 @@
 
 #import "HBTitleSelectionController.h"
 
-@import HandBrakeKit.HBTitle;
+@import HandBrakeKit;
 
 @interface HBTitleSelection : NSObject
 @property (nonatomic, readonly) HBTitle *title;
@@ -53,7 +53,7 @@
     if (self)
     {
         _delegate = delegate;
-        _message = [NSString stringWithFormat:NSLocalizedString(@"Select the titles to add to the queue using the %@ preset:" , nil), presetName];
+        _message = [NSString stringWithFormat:NSLocalizedString(@"Select the titles to add to the queue using the %@ preset:" , @"Titles selection sheet -> informative text"), presetName];
 
         NSMutableArray<HBTitleSelection *> *array = [[NSMutableArray alloc] init];
         for (HBTitle *title in titles)

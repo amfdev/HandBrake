@@ -34,7 +34,7 @@
 
 @import HandBrakeKit;
 
-@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSDrawerDelegate, NSDraggingDestination, NSPopoverDelegate>
+@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSDraggingDestination, NSPopoverDelegate>
 {
     IBOutlet NSTabView *fMainTabView;
 
@@ -93,7 +93,6 @@
 
 @property (nonatomic, strong) HBPresetsMenuBuilder *presetsMenuBuilder;
 @property (nonatomic, strong) IBOutlet NSPopUpButton *presetsPopup;
-@property (nonatomic, strong) IBOutlet NSDrawer *presetsDrawer;
 
 @property (nonatomic, strong) IBOutlet NSToolbarItem *presetsItem;
 @property (nonatomic, strong) NSPopover *presetsPopover;
@@ -134,6 +133,9 @@
 
 @property (nonatomic, readwrite) NSColor *labelColor;
 
+// Alerts
+@property (nonatomic) BOOL suppressCopyProtectionWarning;
+
 @end
 
 #define WINDOW_HEIGHT_OFFSET_INIT 48
@@ -164,10 +166,6 @@
 
         // Progress
         _progressInfo = @"";
-        if (NSAppKitVersionNumber < NSAppKitVersionNumber10_10)
-        {
-            _visible = YES;
-        }
 
         // Check to see if the last destination has been set, use if so, if not, use Movies
 #ifdef __SANDBOX_ENABLED__
@@ -214,49 +212,21 @@
     fPresetsView = [[HBPresetsViewController alloc] initWithPresetManager:presetManager];
     fPresetsView.delegate = self;
 
-    if (NSAppKitVersionNumber < NSAppKitVersionNumber10_10)
-    {
-        self.presetsDrawer = [[NSDrawer alloc] initWithContentSize:NSMakeSize(240, 550) preferredEdge:NSRectEdgeMaxX];
-        self.presetsDrawer.parentWindow = self.window;
-        self.presetsDrawer.delegate = self;
-        self.presetsDrawer.preferredEdge = NSRectEdgeMaxX;
+    fPresetsView.showHeader = YES;
 
-        // Set up the preset drawer
-        self.presetsDrawer.contentView = fPresetsView.view;
-        self.presetsDrawer.contentView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    // Set up the presets popover
+    self.presetsPopover = [[NSPopover alloc] init];
 
-        NSSize drawerSize = NSSizeFromString([[NSUserDefaults standardUserDefaults]
-                                              stringForKey:@"HBDrawerSize"]);
-        if (drawerSize.width > 0)
-        {
-            self.presetsDrawer.contentSize = drawerSize;
-        }
+    self.presetsPopover.contentViewController = fPresetsView;
+    self.presetsPopover.contentSize = NSMakeSize(280, 580);
+    self.presetsPopover.animates = YES;
 
-        // Show/Hide the Presets drawer upon launch based
-        // on user preference DefaultPresetsDrawerShow
-        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"HBDefaultPresetsDrawerShow"])
-        {
-            [self.presetsDrawer open:self];
-        }
-    }
-    else
-    {
-        fPresetsView.showHeader = YES;
+    // AppKit will close the popover when the user interacts with a user interface element outside the popover.
+    // note that interacting with menus or panels that become key only when needed will not cause a transient popover to close.
+    self.presetsPopover.behavior = NSPopoverBehaviorSemitransient;
+    self.presetsPopover.delegate = self;
 
-        // Set up the presets popover
-        self.presetsPopover = [[NSPopover alloc] init];
-
-        self.presetsPopover.contentViewController = fPresetsView;
-        self.presetsPopover.contentSize = NSMakeSize(280, 580);
-        self.presetsPopover.animates = YES;
-
-        // AppKit will close the popover when the user interacts with a user interface element outside the popover.
-        // note that interacting with menus or panels that become key only when needed will not cause a transient popover to close.
-        self.presetsPopover.behavior = NSPopoverBehaviorSemitransient;
-        self.presetsPopover.delegate = self;
-
-        [fPresetsView loadView];
-    }
+    [fPresetsView loadView];
 
     // Set up the summary view
     self.summaryController = [[HBSummaryViewController alloc] init];
@@ -384,11 +354,6 @@
     fPresetsView.enabled = enabled;
 }
 
-- (NSSize)drawerWillResizeContents:(NSDrawer *) drawer toSize:(NSSize)contentSize {
-    [[NSUserDefaults standardUserDefaults] setObject:NSStringFromSize(contentSize) forKey:@"HBDrawerSize"];
-    return contentSize;
-}
-
 - (void)setNilValueForKey:(NSString *)key
 {
     if ([key isEqualToString:@"scanSpecificTitleIdx"])
@@ -408,9 +373,9 @@
         if (action == @selector(browseSources:))
         {
             [toolbarItem setImage: [NSImage imageNamed: @"stopencode"]];
-            [toolbarItem setLabel: NSLocalizedString(@"Cancel Scan", nil)];
-            [toolbarItem setPaletteLabel: NSLocalizedString(@"Cancel Scanning", nil)];
-            [toolbarItem setToolTip: NSLocalizedString(@"Cancel Scanning Source", nil)];
+            [toolbarItem setLabel: NSLocalizedString(@"Cancel Scan", @"Toolbar Open/Cancel Item")];
+            [toolbarItem setPaletteLabel: NSLocalizedString(@"Cancel Scanning", @"Toolbar Open/Cancel Item")];
+            [toolbarItem setToolTip: NSLocalizedString(@"Cancel Scanning Source", @"Toolbar Open/Cancel Item")];
             return YES;
         }
 
@@ -422,9 +387,9 @@
         if (action == @selector(browseSources:))
         {
             [toolbarItem setImage:[NSImage imageNamed:@"source"]];
-            [toolbarItem setLabel:NSLocalizedString(@"Open Source", nil)];
-            [toolbarItem setPaletteLabel:NSLocalizedString(@"Open Source", nil)];
-            [toolbarItem setToolTip:NSLocalizedString(@"Open Source", nil)];
+            [toolbarItem setLabel:NSLocalizedString(@"Open Source",  @"Toolbar Open/Cancel Item")];
+            [toolbarItem setPaletteLabel:NSLocalizedString(@"Open Source",  @"Toolbar Open/Cancel Item")];
+            [toolbarItem setToolTip:NSLocalizedString(@"Open Source", @"Toolbar Open/Cancel Item")];
             return YES;
         }
     }
@@ -436,17 +401,17 @@
         if (action == @selector(rip:))
         {
             [toolbarItem setImage: [NSImage imageNamed: @"stopencode"]];
-            [toolbarItem setLabel: NSLocalizedString(@"Stop", nil)];
-            [toolbarItem setPaletteLabel: NSLocalizedString(@"Stop", nil)];
-            [toolbarItem setToolTip: NSLocalizedString(@"Stop Encoding", nil)];
+            [toolbarItem setLabel: NSLocalizedString(@"Stop", @"Toolbar Start/Stop Item")];
+            [toolbarItem setPaletteLabel: NSLocalizedString(@"Stop", @"Toolbar Start/Stop Item")];
+            [toolbarItem setToolTip: NSLocalizedString(@"Stop Encoding", @"Toolbar Start/Stop Item")];
             return YES;
         }
         if (action == @selector(pause:))
         {
             [toolbarItem setImage: [NSImage imageNamed: @"pauseencode"]];
-            [toolbarItem setLabel: NSLocalizedString(@"Pause", nil)];
-            [toolbarItem setPaletteLabel: NSLocalizedString(@"Pause Encoding", nil)];
-            [toolbarItem setToolTip: NSLocalizedString(@"Pause Encoding", nil)];
+            [toolbarItem setLabel: NSLocalizedString(@"Pause", @"Toolbar Pause Item")];
+            [toolbarItem setPaletteLabel: NSLocalizedString(@"Pause Encoding", @"Pause Item")];
+            [toolbarItem setToolTip: NSLocalizedString(@"Pause Encoding", @"Toolbar Pause Item")];
             return YES;
         }
     }
@@ -455,9 +420,9 @@
         if (action == @selector(pause:))
         {
             [toolbarItem setImage: [NSImage imageNamed: @"encode"]];
-            [toolbarItem setLabel: NSLocalizedString(@"Resume", nil)];
-            [toolbarItem setPaletteLabel: NSLocalizedString(@"Resume Encoding", nil)];
-            [toolbarItem setToolTip: NSLocalizedString(@"Resume Encoding", nil)];
+            [toolbarItem setLabel: NSLocalizedString(@"Resume", @"Toolbar Pause Item")];
+            [toolbarItem setPaletteLabel: NSLocalizedString(@"Resume Encoding", @"Toolbar Pause Item")];
+            [toolbarItem setToolTip: NSLocalizedString(@"Resume Encoding", @"Toolbar Pause Item")];
             return YES;
         }
         if (action == @selector(rip:))
@@ -469,11 +434,11 @@
         {
             [toolbarItem setImage: [NSImage imageNamed: @"encode"]];
             if (fQueueController.pendingItemsCount > 0)
-                [toolbarItem setLabel: NSLocalizedString(@"Start Queue", nil)];
+                [toolbarItem setLabel: NSLocalizedString(@"Start Queue", @"Toolbar Start/Stop Item")];
             else
-                [toolbarItem setLabel: NSLocalizedString(@"Start", nil)];
-            [toolbarItem setPaletteLabel: NSLocalizedString(@"Start Encoding", nil)];
-            [toolbarItem setToolTip: NSLocalizedString(@"Start Encoding", nil)];
+                [toolbarItem setLabel: NSLocalizedString(@"Start", @"Toolbar Start/Stop Item")];
+            [toolbarItem setPaletteLabel: NSLocalizedString(@"Start Encoding", @"Toolbar Start/Stop Item")];
+            [toolbarItem setToolTip: NSLocalizedString(@"Start Encoding", @"Toolbar Start/Stop Item")];
         }
 
         if (action == @selector(rip:))
@@ -516,7 +481,7 @@
     {
         BOOL result = [fQueueController validateMenuItem:menuItem];
 
-        if ([menuItem.title isEqualToString:NSLocalizedString(@"Start Encoding", nil)])
+        if ([menuItem.title isEqualToString:NSLocalizedString(@"Start Encoding", @"Menu Start/Stop Item")])
         {
             if (!result && self.job)
             {
@@ -557,8 +522,7 @@
     {
         return self.job != nil;
     }
-    if (action == @selector(renamePreset:) ||
-        action == @selector(deletePreset:) ||
+    if (action == @selector(deletePreset:) ||
         action == @selector(setDefaultPreset:))
     {
         return self.job != nil && self.edited == NO;//fixme
@@ -583,10 +547,10 @@
 - (NSModalResponse)runCopyProtectionAlert
 {
     NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:NSLocalizedString(@"Copy-Protected sources are not supported.", nil)];
-    [alert setInformativeText:NSLocalizedString(@"Please note that HandBrake does not support the removal of copy-protection from DVD Discs. You can if you wish use any other 3rd party software for this function.", nil)];
-    [alert addButtonWithTitle:NSLocalizedString(@"Attempt Scan Anyway", nil)];
-    [alert addButtonWithTitle:NSLocalizedString(@"Cancel", nil)];
+    [alert setMessageText:NSLocalizedString(@"Copy-Protected sources are not supported.", @"Copy Protection Alert -> message")];
+    [alert setInformativeText:NSLocalizedString(@"Please note that HandBrake does not support the removal of copy-protection from DVD Discs. You can if you wish use any other 3rd party software for this function. This warning will be shown only once each time HandBrake is run.", @"Copy Protection Alert -> informative text")];
+    [alert addButtonWithTitle:NSLocalizedString(@"Attempt Scan Anyway", @"Copy Protection Alert -> first button")];
+    [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"Copy Protection Alert -> second button")];
 
     [NSApp requestUserAttention:NSCriticalRequest];
 
@@ -607,22 +571,19 @@
     self.job = nil;
     [fSrcTitlePopUp removeAllItems];
     self.window.representedURL = nil;
-    self.window.title = NSLocalizedString(@"HandBrake", nil);
+    self.window.title = NSLocalizedString(@"HandBrake", @"Main Window -> title");
 
     NSURL *mediaURL = [HBUtilities mediaURLFromURL:fileURL];
 
     NSError *outError = NULL;
-    BOOL suppressWarning = [[NSUserDefaults standardUserDefaults] boolForKey:@"suppressCopyProtectionAlert"];
 
     // Check if we can scan the source and if there is any warning.
     BOOL canScan = [self.core canScan:mediaURL error:&outError];
 
     // Notify the user that we don't support removal of copy proteciton.
-    if (canScan && [outError code] == 101 && !suppressWarning)
+    if (canScan && [outError code] == 101 && !self.suppressCopyProtectionWarning)
     {
-        // Only show the user this warning once. They may be using a solution we don't know about. Notifying them each time is annoying.
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"suppressCopyProtectionAlert"];
-
+        self.suppressCopyProtectionWarning = YES;
         if ([self runCopyProtectionAlert] == NSAlertFirstButtonReturn)
         {
             // User chose to override our warning and scan the physical dvd anyway, at their own peril. on an encrypted dvd this produces massive log files and fails
@@ -646,23 +607,23 @@
                   previews:hb_num_previews minDuration:min_title_duration_seconds
            progressHandler:^(HBState state, HBProgress progress, NSString *info)
          {
-             fSrcDVD2Field.stringValue = info;
-             fScanIndicator.hidden = NO;
-             fScanHorizontalLine.hidden = YES;
-             fScanIndicator.doubleValue = progress.percent;
+             self->fSrcDVD2Field.stringValue = info;
+             self->fScanIndicator.hidden = NO;
+             self->fScanHorizontalLine.hidden = YES;
+             self->fScanIndicator.doubleValue = progress.percent;
          }
          completionHandler:^(HBCoreResult result)
          {
-             fScanHorizontalLine.hidden = NO;
-             fScanIndicator.hidden = YES;
-             fScanIndicator.indeterminate = NO;
-             fScanIndicator.doubleValue = 0.0;
+             self->fScanHorizontalLine.hidden = NO;
+             self->fScanIndicator.hidden = YES;
+             self->fScanIndicator.indeterminate = NO;
+             self->fScanIndicator.doubleValue = 0.0;
 
              if (result == HBCoreResultDone)
              {
                  for (HBTitle *title in self.core.titles)
                  {
-                     [fSrcTitlePopUp addItemWithTitle:title.description];
+                     [self->fSrcTitlePopUp addItemWithTitle:title.description];
                  }
                  self.window.representedURL = mediaURL;
                  self.window.title = mediaURL.lastPathComponent;
@@ -670,7 +631,7 @@
              else
              {
                  // We display a message if a valid source was not chosen
-                 fSrcDVD2Field.stringValue = NSLocalizedString(@"No Valid Source Found", @"");
+                 self->fSrcDVD2Field.stringValue = NSLocalizedString(@"No Valid Source Found", @"Main Window -> Info text");
              }
 
              // Set the last searched source directory in the prefs here
@@ -919,7 +880,7 @@
 
     [panel beginSheetModalForWindow:self.window completionHandler: ^(NSInteger result)
     {
-         if (result == NSFileHandlingPanelOKButton)
+        if (result == NSModalResponseOK)
          {
              NSInteger titleIdx = self.scanSpecificTitle ? self.scanSpecificTitleIdx : 0;
              [self openURL:panel.URL titleIndex:titleIdx];
@@ -936,7 +897,7 @@
     panel.canChooseFiles = NO;
     panel.canChooseDirectories = YES;
     panel.canCreateDirectories = YES;
-    panel.prompt = NSLocalizedString(@"Choose", nil);
+    panel.prompt = NSLocalizedString(@"Choose", @"Main Window -> Destination open panel");
 
     if (self.job.outputURL)
     {
@@ -945,7 +906,7 @@
 
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result)
      {
-         if (result == NSFileHandlingPanelOKButton)
+         if (result == NSModalResponseOK)
          {
              self.job.outputURL = panel.URL;
              self.currentDestination = panel.URL;
@@ -1025,9 +986,9 @@
     if (!(undo.isUndoing || undo.isRedoing))
     {
         // Change UI to show "Custom" settings are being used
-        if (![self.job.presetName hasSuffix:NSLocalizedString(@"(Modified)", nil)])
+        if (![self.job.presetName hasSuffix:NSLocalizedString(@"(Modified)", @"Main Window -> preset modified")])
         {
-            self.job.presetName = [NSString stringWithFormat:@"%@ %@", self.job.presetName, NSLocalizedString(@"(Modified)", nil)];
+            self.job.presetName = [NSString stringWithFormat:@"%@ %@", self.job.presetName, NSLocalizedString(@"(Modified)", @"Main Window -> preset modified")];
         }
         self.edited = YES;
         [self updateFileName];
@@ -1102,59 +1063,51 @@
 
 /**
  Check if the job destination if a valid one,
- if so, call the didEndSelector
- Note: rework this to use a block in the future
-
+ if so, call the handler
  @param job the job
- @param didEndSelector the selector to call if the check is successful
+ @param completionHandler the block to call if the check is successful
  */
-- (void)runDestinationAlerts:(HBJob *)job didEndSelector:(SEL)didEndSelector
+- (void)runDestinationAlerts:(HBJob *)job completionHandler:(void (^ __nullable)(NSModalResponse returnCode))handler
 {
     if ([[NSFileManager defaultManager] fileExistsAtPath:job.outputURL.path] == 0)
     {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"Warning!", @"")];
-        [alert setInformativeText:NSLocalizedString(@"This is not a valid destination directory!", @"")];
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:didEndSelector contextInfo:NULL];
+        [alert setMessageText:NSLocalizedString(@"Warning!", @"Invalid destination alert -> message")];
+        [alert setInformativeText:NSLocalizedString(@"This is not a valid destination directory!", @"Invalid destination alert -> informative text")];
+        [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
     else if ([job.fileURL isEqual:job.completeOutputURL])
     {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"")];
-        [alert setInformativeText:NSLocalizedString(@"The destination is the same as the source, you can not overwrite your source file!", @"")];
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:didEndSelector contextInfo:NULL];
+        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"Destination same as source alert -> message")];
+        [alert setInformativeText:NSLocalizedString(@"The destination is the same as the source, you can not overwrite your source file!", @"Destination same as source alert -> informative text")];
+        [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
     else if ([[NSFileManager defaultManager] fileExistsAtPath:job.completeOutputURL.path])
     {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"")];
-        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @""), job.completeOutputURL.path]];
-        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"")];
-        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"")];
-        [alert setAlertStyle:NSCriticalAlertStyle];
+        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"File already exists alert -> message")];
+        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists alert -> informative text"), job.completeOutputURL.path]];
+        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists alert -> first button")];
+        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists alert -> second button")];
+        [alert setAlertStyle:NSAlertStyleCritical];
 
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:didEndSelector contextInfo:NULL];
+        [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
     else if ([fQueueController jobExistAtURL:job.completeOutputURL])
     {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"There is already a queue item for this destination.", @"")];
-        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @""), job.completeOutputURL.path]];
-        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"")];
-        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"")];
-        [alert setAlertStyle:NSCriticalAlertStyle];
+        [alert setMessageText:NSLocalizedString(@"There is already a queue item for this destination.", @"File already exists in queue alert -> message")];
+        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists in queue alert -> informative text"), job.completeOutputURL.path]];
+        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists in queue alert -> first button")];
+        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists in queue alert -> second button")];
+        [alert setAlertStyle:NSAlertStyleCritical];
 
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:didEndSelector contextInfo:NULL];
+        [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
     else
     {
-        NSInteger returnCode = NSAlertSecondButtonReturn;
-        NSMethodSignature *methodSignature = [self methodSignatureForSelector:didEndSelector];
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSignature];
-        [invocation setTarget:self];
-        [invocation setSelector:didEndSelector];
-        [invocation setArgument:&returnCode atIndex:3];
-        [invocation invoke];
+        handler(NSAlertSecondButtonReturn);
     }
 }
 
@@ -1173,22 +1126,12 @@
 {
     if ([self.window HB_endEditing])
     {
-        [self runDestinationAlerts:self.job
-                    didEndSelector:@selector(overwriteAddToQueueAlertDone:returnCode:contextInfo:)];
-    }
-}
-
-/**
- * Called from the alert posted by addToQueue
- * that asks the user if they want to overwrite an exiting movie file.
- */
-- (void)overwriteAddToQueueAlertDone:(NSAlert *)alert
-                          returnCode:(NSInteger)returnCode
-                         contextInfo:(void *)contextInfo
-{
-    if (returnCode == NSAlertSecondButtonReturn)
-    {
-        [self doAddToQueue];
+        [self runDestinationAlerts:self.job completionHandler:^(NSModalResponse returnCode) {
+            if (returnCode == NSAlertSecondButtonReturn)
+            {
+                [self doAddToQueue];
+            }
+        }];
     }
 }
 
@@ -1224,23 +1167,13 @@
     {
         if ([self.window HB_endEditing])
         {
-            [self runDestinationAlerts:self.job
-                        didEndSelector:@selector(overWriteAlertDone:returnCode:contextInfo:)];
+            [self runDestinationAlerts:self.job completionHandler:^(NSModalResponse returnCode) {
+                if (returnCode == NSAlertSecondButtonReturn)
+                {
+                    [self doRip];
+                }
+            }];
         }
-    }
-}
-
-/**
- * overWriteAlertDone: called from the alert posted by Rip: that asks the user if they
- * want to overwrite an exiting movie file.
- */
-- (void)overWriteAlertDone:(NSAlert *)alert
-                returnCode:(NSInteger)returnCode
-               contextInfo:(void *)contextInfo
-{
-    if (returnCode == NSAlertSecondButtonReturn)
-    {
-        [self doRip];
     }
 }
 
@@ -1260,17 +1193,12 @@
                                                                              presetName:self.job.presetName
                                                                                delegate:self];
 
-    [NSApp beginSheet:self.titlesSelectionController.window
-       modalForWindow:self.window
-        modalDelegate:nil
-       didEndSelector:NULL
-          contextInfo:NULL];
+    [self.window beginSheet:self.titlesSelectionController.window completionHandler:nil];
 }
 
 - (void)didSelectTitles:(NSArray<HBTitle *> *)titles
 {
-    [self.titlesSelectionController.window orderOut:nil];
-    [NSApp endSheet:self.titlesSelectionController.window];
+    [self.window endSheet:self.titlesSelectionController.window];
 
     [self doAddTitlesToQueue:titles];
 }
@@ -1324,35 +1252,29 @@
     if (fileOverwritesSource)
     {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"")];
-        [alert setInformativeText:NSLocalizedString(@"The destination is the same as the source, you can not overwrite your source file!", @"")];
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:@selector(overwriteAddTitlesToQueueAlertDone:returnCode:contextInfo:) contextInfo:NULL];
+        [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"Destination same as source alert -> message")];
+        [alert setInformativeText:NSLocalizedString(@"The destination is the same as the source, you can not overwrite your source file!", @"Destination same as source alert -> informative text")];
+        [alert beginSheetModalForWindow:self.window completionHandler:nil];
     }
     else if (fileExists)
     {
         // File exist, warn user
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"File already exists.", nil)];
-        [alert setInformativeText:NSLocalizedString(@"One or more file already exists. Do you want to overwrite?", nil)];
-        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", nil)];
-        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", nil)];
-        [alert setAlertStyle:NSCriticalAlertStyle];
+        [alert setMessageText:NSLocalizedString(@"File already exists.", @"File already exists alert -> message")];
+        [alert setInformativeText:NSLocalizedString(@"One or more file already exists. Do you want to overwrite?", @"File already exists alert -> informative text")];
+        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists alert -> first button")];
+        [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists alert -> second button")];
+        [alert setAlertStyle:NSAlertStyleCritical];
 
-        [alert beginSheetModalForWindow:self.window modalDelegate:self didEndSelector:@selector(overwriteAddTitlesToQueueAlertDone:returnCode:contextInfo:) contextInfo:(void *)CFBridgingRetain(jobs)];
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse returnCode) {
+            if (returnCode == NSAlertSecondButtonReturn)
+            {
+                [self->fQueueController addJobsFromArray:jobs];
+            }
+        }];
     }
     else
     {
-        [fQueueController addJobsFromArray:jobs];
-    }
-}
-
-- (void)overwriteAddTitlesToQueueAlertDone:(NSAlert *)alert
-                                returnCode:(NSInteger)returnCode
-                               contextInfo:(void *)contextInfo
-{
-    if (returnCode == NSAlertSecondButtonReturn)
-    {
-        NSArray *jobs = CFBridgingRelease(contextInfo);
         [fQueueController addJobsFromArray:jobs];
     }
 }
@@ -1407,19 +1329,6 @@
             fPresetsView.selectedPreset = _currentPreset;
             [self.presetsPopover close];
         }
-    }
-    else
-    {
-        if (self.presetsDrawer.state == NSDrawerClosedState)
-        {
-            [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"HBDefaultPresetsDrawerShow"];
-        }
-        else
-        {
-            [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"HBDefaultPresetsDrawerShow"];
-        }
-
-        [self.presetsDrawer toggle:self];
     }
 }
 
@@ -1493,19 +1402,14 @@
                                                                                   customHeight:self.job.picture.height
                                                                                defaultToCustom:defaultToCustom];
 
-    [NSApp beginSheet:addPresetController.window modalForWindow:self.window modalDelegate:self didEndSelector:@selector(sheetDidEnd:returnCode:contextInfo:) contextInfo:(void *)CFBridgingRetain(addPresetController)];
-}
-
-- (void)sheetDidEnd:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
-{
-    __unused HBAddPresetController *addPresetController = (HBAddPresetController *)CFBridgingRelease(contextInfo);
-
-    if (returnCode == NSModalResponseContinue)
-    {
-        fPresetsView.selectedPreset = addPresetController.preset;
-        [self applyPreset:fPresetsView.selectedPreset];
-        [[NSNotificationCenter defaultCenter] postNotificationName:HBPresetsChangedNotification object:nil];
-    }
+    [self.window beginSheet:addPresetController.window completionHandler:^(NSModalResponse returnCode) {
+        if (returnCode == NSModalResponseOK)
+        {
+            self->fPresetsView.selectedPreset = addPresetController.preset;
+            [self applyPreset:self->fPresetsView.selectedPreset];
+            [[NSNotificationCenter defaultCenter] postNotificationName:HBPresetsChangedNotification object:nil];
+        }
+    }];
 }
 
 - (HBPreset *)createPresetFromCurrentSettings
@@ -1526,21 +1430,16 @@
     [self.window HB_endEditing];
     fPresetsView.selectedPreset = _currentPreset;
 
-    HBRenamePresetController *renamePresetController = [[HBRenamePresetController alloc] initWithPreset:self.currentPreset
+    __block HBRenamePresetController *renamePresetController = [[HBRenamePresetController alloc] initWithPreset:self.currentPreset
                                                                                           presetManager:presetManager];
-
-    [NSApp beginSheet:renamePresetController.window modalForWindow:self.window modalDelegate:self didEndSelector:@selector(renamePresetSheetDidEnd:returnCode:contextInfo:) contextInfo:(void *)CFBridgingRetain(renamePresetController)];
-}
-
-- (void)renamePresetSheetDidEnd:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
-{
-    __unused HBRenamePresetController *renamePresetController = (HBRenamePresetController *)CFBridgingRelease(contextInfo);
-
-    if (returnCode == NSModalResponseContinue)
-    {
-        [self applyPreset:fPresetsView.selectedPreset];
-        [[NSNotificationCenter defaultCenter] postNotificationName:HBPresetsChangedNotification object:nil];
-    }
+    [self.window beginSheet:renamePresetController.window completionHandler:^(NSModalResponse returnCode) {
+        if (returnCode == NSModalResponseOK)
+        {
+            [self applyPreset:self->fPresetsView.selectedPreset];
+            [[NSNotificationCenter defaultCenter] postNotificationName:HBPresetsChangedNotification object:nil];
+        }
+        renamePresetController = nil;
+    }];
 }
 
 #pragma mark -

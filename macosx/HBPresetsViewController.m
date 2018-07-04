@@ -155,7 +155,7 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
 
     // Open a panel to let the user choose where and how to save the export file
     NSSavePanel *panel = [NSSavePanel savePanel];
-    panel.title = NSLocalizedString(@"Export presets", nil);
+    panel.title = NSLocalizedString(@"Export presets", @"Export presets save panel title");
 
     // We get the current file name and path from the destination field here
     NSURL *defaultExportDirectory = [[NSURL fileURLWithPath:NSHomeDirectory()] URLByAppendingPathComponent:@"Desktop"];
@@ -164,7 +164,7 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
 
     [panel beginWithCompletionHandler:^(NSInteger result)
      {
-         if (result == NSFileHandlingPanelOKButton)
+         if (result == NSModalResponseOK)
          {
              NSURL *presetExportDirectory = [panel.URL URLByDeletingLastPathComponent];
              [[NSUserDefaults standardUserDefaults] setURL:presetExportDirectory forKey:@"LastPresetExportDirectoryURL"];
@@ -177,7 +177,7 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
 - (IBAction)importPreset:(id)sender
 {
     NSOpenPanel *panel = [NSOpenPanel openPanel];
-    panel.title = NSLocalizedString(@"Import presets", nil);
+    panel.title = NSLocalizedString(@"Import presets", @"Import preset open panel title");
     panel.allowsMultipleSelection = YES;
     panel.canChooseFiles = YES;
     panel.canChooseDirectories = NO;
@@ -196,7 +196,7 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
      {
          [[NSUserDefaults standardUserDefaults] setURL:panel.directoryURL forKey:@"LastPresetImportDirectoryURL"];
 
-         if (result == NSFileHandlingPanelOKButton)
+         if (result == NSModalResponseOK)
          {
              for (NSURL *url in panel.URLs)
              {
@@ -224,21 +224,7 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
     _showHeader = showHeader;
 
     self.headerLabel.hidden = !showHeader;
-    if (NSAppKitVersionNumber < NSAppKitVersionNumber10_10)
-    {
-        if (showHeader)
-        {
-            [self.view addConstraint:self.headerBottomConstraint];
-        }
-        else
-        {
-            [self.view removeConstraint:self.headerBottomConstraint];
-        }
-    }
-    else
-    {
-        self.headerBottomConstraint.active = showHeader;
-    }
+    self.headerBottomConstraint.active = showHeader;
 }
 
 - (IBAction)clicked:(id)sender
@@ -270,17 +256,17 @@ static void *HBPresetsViewControllerContext = &HBPresetsViewControllerContext;
 {
     if ([self.treeController canRemove])
     {
-        /* Alert user before deleting preset */
-        NSAlert *alert = [NSAlert alertWithMessageText:NSLocalizedString(@"Are you sure you want to permanently delete the selected preset?", nil)
-                                         defaultButton:NSLocalizedString(@"Delete Preset", nil)
-                                       alternateButton:NSLocalizedString(@"Cancel", nil)
-                                           otherButton:nil
-                             informativeTextWithFormat:NSLocalizedString(@"You can't undo this action.", nil)];
-        [alert setAlertStyle:NSCriticalAlertStyle];
+        // Alert user before deleting preset
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = NSLocalizedString(@"Are you sure you want to permanently delete the selected preset?", @"Delete preset alert -> message");
+        alert.informativeText = NSLocalizedString(@"You can't undo this action.", @"Delete preset alert -> informative text");
+        [alert addButtonWithTitle:NSLocalizedString(@"Delete Preset", @"Delete preset alert -> first button")];
+        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"Delete preset alert -> second button")];
+        alert.alertStyle = NSAlertStyleCritical;
 
         NSInteger status = [alert runModal];
 
-        if (status == NSAlertDefaultReturn)
+        if (status == NSAlertFirstButtonReturn)
         {
             [self.presets deletePresetAtIndexPath:[self.treeController selectionIndexPath]];
             [self setSelection:self.presets.defaultPreset];

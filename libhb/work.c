@@ -246,6 +246,27 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
             w = hb_get_work(h, WORK_ENCX265);
             break;
 #endif
+#ifdef USE_VCE
+        case HB_VCODEC_FFMPEG_VCE_H264:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_H264;
+            break;
+        case HB_VCODEC_FFMPEG_VCE_H265:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_HEVC;
+            break;
+#endif
+#ifdef USE_NVENC
+        case HB_VCODEC_FFMPEG_NVENC_H264:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_H264;
+            break;
+        case HB_VCODEC_FFMPEG_NVENC_H265:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_HEVC;
+            break;
+#endif
+
         default:
             hb_error("Unknown video codec (0x%x)", vcodec );
     }
@@ -479,6 +500,10 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_QSV_H264:
                 case HB_VCODEC_QSV_H265:
                 case HB_VCODEC_QSV_H265_10BIT:
+                case HB_VCODEC_FFMPEG_VCE_H264:
+                case HB_VCODEC_FFMPEG_VCE_H265:
+                case HB_VCODEC_FFMPEG_NVENC_H264:
+                case HB_VCODEC_FFMPEG_NVENC_H265:
                     hb_log("     + profile: %s", job->encoder_profile);
                 default:
                     break;
@@ -493,6 +518,10 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_QSV_H264:
                 case HB_VCODEC_QSV_H265:
                 case HB_VCODEC_QSV_H265_10BIT:
+                case HB_VCODEC_FFMPEG_VCE_H264:
+                case HB_VCODEC_FFMPEG_VCE_H265:
+                case HB_VCODEC_FFMPEG_NVENC_H264:
+                case HB_VCODEC_FFMPEG_NVENC_H265:
                     hb_log("     + level:   %s", job->encoder_level);
                 default:
                     break;

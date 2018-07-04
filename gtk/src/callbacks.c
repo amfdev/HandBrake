@@ -58,7 +58,6 @@
 #endif
 #endif
 
-#include <libnotify/notify.h>
 #ifndef NOTIFY_CHECK_VERSION
 #define NOTIFY_CHECK_VERSION(x,y,z) 0
 #endif
@@ -2647,7 +2646,6 @@ ghb_set_title_settings(signal_user_data_t *ud, GhbValue *settings)
     if (title != NULL)
     {
         GhbValue *job_dict;
-        char * source_name;
 
         job_dict = hb_preset_job_init(ghb_scan_handle(), title_id, settings);
         ghb_dict_set(settings, "Job", job_dict);
@@ -2661,9 +2659,10 @@ ghb_set_title_settings(signal_user_data_t *ud, GhbValue *settings)
         ghb_dict_set_int(settings, "source_width", title->geometry.width);
         ghb_dict_set_int(settings, "source_height", title->geometry.height);
         ghb_dict_set_string(settings, "source", title->path);
-        source_name = ghb_create_source_label(title);
-        ghb_dict_set_string(settings, "source_label", source_name);
-        ghb_dict_set_string(settings, "volume", source_name);
+        ghb_dict_set_string(settings, "source_label",
+                            ghb_create_source_label(title));
+        ghb_dict_set_string(settings, "volume",
+                            ghb_create_volume_label(title));
 
         int crop[4];
 
@@ -4489,17 +4488,20 @@ ghb_log_cb(GIOChannel *source, GIOCondition cond, gpointer data)
                 scroll_tok = g_idle_add((GSourceFunc)activity_scroll_to_bottom,
                                         ud);
             }
+            if (ud->activity_log != NULL)
+            {
 #if defined(_WIN32)
-            gsize one = 1;
-            utf8_text[length-1] = '\r';
+                gsize one = 1;
+                utf8_text[length-1] = '\r';
 #endif
-            g_io_channel_write_chars (ud->activity_log, utf8_text,
-                                    length, &outlength, NULL);
+                g_io_channel_write_chars (ud->activity_log, utf8_text,
+                                        length, &outlength, NULL);
 #if defined(_WIN32)
-            g_io_channel_write_chars (ud->activity_log, "\n",
-                                    one, &one, NULL);
+                g_io_channel_write_chars (ud->activity_log, "\n",
+                                        one, &one, NULL);
 #endif
-            g_io_channel_flush(ud->activity_log, NULL);
+                g_io_channel_flush(ud->activity_log, NULL);
+            }
             if (ud->job_activity_log)
             {
                 g_io_channel_write_chars (ud->job_activity_log, utf8_text,
@@ -4602,12 +4604,17 @@ ghb_log(gchar *log, ...)
 }
 
 static void
-browse_url(const gchar *url)
+browse_url(signal_user_data_t *ud, const gchar *url)
 {
 #if defined(_WIN32)
     ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
-    gboolean result;
+    GtkWindow * parent;
+    gboolean    result;
+
+    parent = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
+    result = gtk_show_uri_on_window(parent, url, GDK_CURRENT_TIME, NULL);
+    if (result) return;
     char *argv[] =
         {"xdg-open",NULL,NULL,NULL};
     argv[1] = (gchar*)url;
@@ -4656,7 +4663,7 @@ about_action_cb(GSimpleAction *action, GVariant *param, signal_user_data_t *ud)
 G_MODULE_EXPORT void
 guide_action_cb(GSimpleAction *action, GVariant *param, signal_user_data_t *ud)
 {
-    browse_url(HB_DOCS);
+    browse_url(ud, HB_DOCS);
 }
 
 G_MODULE_EXPORT void
@@ -5748,14 +5755,6 @@ free_resources:
     return NULL;
 }
 
-#if !defined(_WIN32)
-G_MODULE_EXPORT void
-notify_closed_cb(NotifyNotification *notification, signal_user_data_t *ud)
-{
-    g_object_unref(G_OBJECT(notification));
-}
-#endif
-
 void
 ghb_notify_done(signal_user_data_t *ud)
 {
@@ -5763,25 +5762,17 @@ ghb_notify_done(signal_user_data_t *ud)
     if (ghb_settings_combo_int(ud->prefs, "WhenComplete") == 0)
         return;
 
-#if !defined(_WIN32)
-    NotifyNotification *notification;
-    notification = notify_notification_new(
-        _("Encode Complete"),
-        _("Put down that cocktail, Your HandBrake queue is done!"),
-        NULL
-#if NOTIFY_CHECK_VERSION (0, 7, 0)
-                );
-#else
-        ,NULL);
-#endif
-    GtkIconTheme *theme = gtk_icon_theme_get_default();
-    GdkPixbuf *pb = gtk_icon_theme_load_icon(theme, "hb-icon", 32,
-                                            GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
-    notify_notification_set_icon_from_pixbuf(notification, pb);
-    g_signal_connect(notification, "closed", (GCallback)notify_closed_cb, ud);
-    notify_notification_show(notification, NULL);
-    g_object_unref(G_OBJECT(pb));
-#endif
+    GNotification * notification;
+    GIcon         * icon;
+
+    notification = g_notification_new(_("Encode Complete"));
+    g_notification_set_body(notification,
+        _("Put down that cocktail, Your HandBrake queue is done!"));
+    icon = g_themed_icon_new("fr.handbrake.ghb");
+    g_notification_set_icon(notification, icon);
+
+    g_application_send_notification(G_APPLICATION(ud->app), "cocktail", notification);
+    g_object_unref(G_OBJECT(notification));
 
     if (ghb_settings_combo_int(ud->prefs, "WhenComplete") == 3)
     {
@@ -5879,4 +5870,49 @@ static void container_empty_cb(GtkWidget *widget, gpointer data)
 void ghb_container_empty(GtkContainer *c)
 {
     gtk_container_foreach(c, container_empty_cb, NULL);
+}
+
+G_MODULE_EXPORT gboolean
+combo_search_key_press_cb(
+    GtkWidget *widget,
+    GdkEvent *event,
+    signal_user_data_t *ud)
+{
+    GtkComboBox  * combo = GTK_COMBO_BOX(widget);
+    GtkTreeModel * model = GTK_TREE_MODEL(gtk_combo_box_get_model(combo));
+    GtkTreeIter    iter, prev_iter;
+    gchar        * lang;
+    guint          keyval;
+    gunichar       key_char;
+    gunichar       first_char;
+    int            pos = 0, count = 2048;
+
+    ghb_event_get_keyval(event, &keyval);
+    key_char = g_unichar_toupper(gdk_keyval_to_unicode(keyval));
+    if (gtk_combo_box_get_active_iter(combo, &iter))
+    {
+        while (pos <= count)
+        {
+            pos++;
+            prev_iter = iter;
+            if (!gtk_tree_model_iter_next(model, &iter))
+            {
+                GtkTreePath * path = gtk_tree_model_get_path(model, &prev_iter);
+                gint        * ind  = gtk_tree_path_get_indices(path);;
+
+                count = ind[0];
+                gtk_tree_path_free(path);
+                gtk_tree_model_get_iter_first(model, &iter);
+            }
+            gtk_tree_model_get(model, &iter, 0, &lang, -1);
+            first_char = g_unichar_toupper(g_utf8_get_char(lang));
+            g_free(lang);
+            if (first_char == key_char)
+            {
+                gtk_combo_box_set_active_iter(combo, &iter);
+                break;
+            }
+        }
+    }
+    return FALSE;
 }

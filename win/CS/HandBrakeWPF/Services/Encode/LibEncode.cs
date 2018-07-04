@@ -13,22 +13,22 @@ namespace HandBrakeWPF.Services.Encode
     using System.Diagnostics;
     using System.IO;
 
-    using HandBrake.ApplicationServices.Interop;
-    using HandBrake.ApplicationServices.Interop.EventArgs;
-    using HandBrake.ApplicationServices.Interop.Interfaces;
-    using HandBrake.ApplicationServices.Interop.Json.State;
-    using HandBrake.ApplicationServices.Model;
+    using HandBrake.Interop.Interop.EventArgs;
+    using HandBrake.Interop.Interop.Interfaces;
+    using HandBrake.Interop.Interop.Json.State;
+    using HandBrake.Interop.Model;
 
     using HandBrakeWPF.Exceptions;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.Factories;
 
     using EncodeTask = Model.EncodeTask;
+    using HandBrakeInstanceManager = Instance.HandBrakeInstanceManager;
     using IEncode = Interfaces.IEncode;
-    using ILog = HandBrakeWPF.Services.Logging.Interfaces.ILog;
-    using LogLevel = HandBrakeWPF.Services.Logging.Model.LogLevel;
-    using LogMessageType = HandBrakeWPF.Services.Logging.Model.LogMessageType;
-    using LogService = HandBrakeWPF.Services.Logging.LogService;
+    using ILog = Logging.Interfaces.ILog;
+    using LogLevel = Logging.Model.LogLevel;
+    using LogMessageType = Logging.Model.LogMessageType;
+    using LogService = Logging.LogService;
 
     /// <summary>
     /// LibHB Implementation of IEncode
@@ -38,7 +38,7 @@ namespace HandBrakeWPF.Services.Encode
         #region Private Variables
 
         private ILog log = LogService.GetLogger();
-        private IHandBrakeInstance instance;
+        private IEncodeInstance instance;
         private DateTime startTime;
         private EncodeTask currentTask;
         private HBConfiguration currentConfiguration;
@@ -80,8 +80,7 @@ namespace HandBrakeWPF.Services.Encode
                 this.log.Reset(); // Reset so we have a clean log for the start of the encode.
                 this.ServiceLogMessage("Starting Encode ...");
 
-                HandBrakeUtils.SetDvdNav(!configuration.IsDvdNavDisabled);
-                this.instance = task.IsPreviewEncode ? HandBrakeInstanceManager.GetPreviewInstance(configuration.Verbosity) : HandBrakeInstanceManager.GetEncodeInstance(configuration.Verbosity);
+                this.instance = task.IsPreviewEncode ? HandBrake.Interop.Interop.HandBrakeInstanceManager.GetPreviewInstance(configuration.Verbosity, configuration) : HandBrakeInstanceManager.GetEncodeInstance(configuration.Verbosity, configuration);
                 
                 this.instance.EncodeCompleted += this.InstanceEncodeCompleted;
                 this.instance.EncodeProgress += this.InstanceEncodeProgress;

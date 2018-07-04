@@ -132,15 +132,7 @@ static int avformatInit( hb_mux_object_t * m )
 
     max_tracks = 1 + hb_list_count( job->list_audio ) +
                      hb_list_count( job->list_subtitle );
-
     m->tracks = calloc(max_tracks, sizeof(hb_mux_data_t*));
-
-    m->oc = avformat_alloc_context();
-    if (m->oc == NULL)
-    {
-        hb_error( "Could not initialize avformat context." );
-        goto error;
-    }
 
     AVDictionary * av_opts = NULL;
     switch (job->mux)
@@ -176,13 +168,14 @@ static int avformatInit( hb_mux_object_t * m )
             goto error;
         }
     }
-    m->oc->oformat = av_guess_format(muxer_name, NULL, NULL);
-    if(m->oc->oformat == NULL)
+
+    ret = avformat_alloc_output_context2(&m->oc, NULL, muxer_name, job->file);
+    if (ret < 0)
     {
-        hb_error("Could not guess output format %s", muxer_name);
+        hb_error( "Could not initialize avformat context." );
         goto error;
     }
-    av_strlcpy(m->oc->filename, job->file, sizeof(m->oc->filename));
+
     ret = avio_open2(&m->oc->pb, job->file, AVIO_FLAG_WRITE,
                      &m->oc->interrupt_callback, NULL);
     if( ret < 0 )
@@ -215,6 +208,8 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
         case HB_VCODEC_QSV_H264:
+        case HB_VCODEC_FFMPEG_VCE_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -340,6 +335,8 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_X265_16BIT:
         case HB_VCODEC_QSV_H265:
         case HB_VCODEC_QSV_H265_10BIT:
+        case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_NVENC_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -421,6 +418,7 @@ static int avformatInit( hb_mux_object_t * m )
         track->st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
         track->st->codecpar->initial_padding = audio->priv.config.init_delay *
                                         audio->config.out.samplerate / 90000;
+        track->st->codecpar->frame_size = audio->config.out.samples_per_frame;
         if (job->mux == HB_MUX_AV_MP4)
         {
             track->st->time_base.num = 1;
@@ -801,7 +799,7 @@ static int avformatInit( hb_mux_object_t * m )
                 }
                 else
                 {
-                    track->st->codecpar->codec_id = AV_CODEC_ID_SSA;
+                    track->st->codecpar->codec_id = AV_CODEC_ID_ASS;
                     need_fonts = 1;
 
                     if (subtitle->extradata_size)
@@ -1198,10 +1196,12 @@ static int avformatMux(hb_mux_object_t *m, hb_mux_data_t *track, hb_buffer_t *bu
         {
             pkt.flags |= AV_PKT_FLAG_KEY;
         }
+#ifdef AV_PKT_FLAG_DISPOSABLE
         if (!(buf->s.flags & HB_FLAG_FRAMETYPE_REF))
         {
             pkt.flags |= AV_PKT_FLAG_DISPOSABLE;
         }
+#endif
     }
     else if (buf->s.frametype & HB_FRAME_MASK_KEY)
     {
@@ -1313,41 +1313,6 @@ static int avformatMux(hb_mux_object_t *m, hb_mux_data_t *track, hb_buffer_t *bu
                     free(buffer);
                     free(styleatom);
                 }
-            }
-            if (track->st->codecpar->codec_id == AV_CODEC_ID_SSA &&
-                job->mux == HB_MUX_AV_MKV)
-            {
-                // avformat requires the this additional information
-                // which it parses and then strips away
-                int start_hh, start_mm, start_ss, start_ms;
-                int stop_hh, stop_mm, stop_ss, stop_ms, layer;
-                char *ssa;
-
-                start_hh = buf->s.start / (90000 * 60 * 60);
-                start_mm = (buf->s.start / (90000 * 60)) % 60;
-                start_ss = (buf->s.start / 90000) % 60;
-                start_ms = (buf->s.start / 900) % 100;
-                stop_hh = buf->s.stop / (90000 * 60 * 60);
-                stop_mm = (buf->s.stop / (90000 * 60)) % 60;
-                stop_ss = (buf->s.stop / 90000) % 60;
-                stop_ms = (buf->s.stop / 900) % 100;
-
-                // Skip the read-order field
-                ssa = strchr((char*)buf->data, ',');
-                if (ssa != NULL)
-                    ssa++;
-                // Skip the layer field
-                layer = strtol(ssa, NULL, 10);
-                ssa = strchr(ssa, ',');
-                if (ssa != NULL)
-                    ssa++;
-                sub_out = (uint8_t*)hb_strdup_printf(
-                    "Dialogue: %d,%d:%02d:%02d.%02d,%d:%02d:%02d.%02d,%s",
-                    layer,
-                    start_hh, start_mm, start_ss, start_ms,
-                    stop_hh, stop_mm, stop_ss, stop_ms, ssa);
-                pkt.data = sub_out;
-                pkt.size = strlen((char*)sub_out) + 1;
             }
             if (pkt.data == NULL)
             {

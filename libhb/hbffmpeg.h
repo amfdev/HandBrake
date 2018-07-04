@@ -7,6 +7,9 @@
    For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
 
+#ifndef HB_FFMPEG_H
+#define HB_FFMPEG_H
+
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libavutil/channel_layout.h"
@@ -17,14 +20,14 @@
 #include "libavutil/downmix_info.h"
 #include "libavutil/display.h"
 #include "libswscale/swscale.h"
-#include "libavresample/avresample.h"
+#include "libswresample/swresample.h"
 #include "common.h"
 
 #define HB_FFMPEG_THREADS_AUTO (-1) // let hb_avcodec_open() decide thread_count
 
 void hb_avcodec_init(void);
 int  hb_avcodec_open(AVCodecContext *, AVCodec *, AVDictionary **, int);
-int  hb_avcodec_close(AVCodecContext *);
+void hb_avcodec_free_context(AVCodecContext **avctx);
 const char* const* hb_av_preset_get_names(int encoder);
 
 uint64_t hb_ff_mixdown_xlat(int hb_mixdown, int *downmix_mode);
@@ -37,6 +40,14 @@ hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
                    int dstW, int dstH, enum AVPixelFormat dstFormat,
                    int flags, int colorspace);
 
+static const char* const hb_vce_preset_names[] = { "speed", "balanced", "quality", NULL, };
+
 hb_buffer_t * hb_avframe_to_video_buffer(AVFrame *frame, AVRational time_base);
 void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
                                        AVRational time_base);
+
+int hb_av_encoder_present(int encoder);
+const char* const* hb_av_profile_get_names(int encoder);
+const char* const* hb_av_level_get_names(int encoder);
+
+#endif

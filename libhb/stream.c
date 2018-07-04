@@ -1078,6 +1078,8 @@ hb_title_t * hb_stream_title_scan(hb_stream_t *stream, hb_title_t * title)
     title->video_id = get_id( &stream->pes.list[idx] );
     title->video_codec = stream->pes.list[idx].codec;
     title->video_codec_param = stream->pes.list[idx].codec_param;
+    title->video_timebase.num = 1;
+    title->video_timebase.den = 90000;
 
     if (stream->hb_stream_type == transport)
     {
@@ -1967,8 +1969,10 @@ static void pes_add_subtitle_to_title(
     hb_subtitle_t *subtitle = calloc( sizeof( hb_subtitle_t ), 1 );
     iso639_lang_t * lang;
 
-    subtitle->track = idx;
-    subtitle->id = id;
+    subtitle->track        = idx;
+    subtitle->id           = id;
+    subtitle->timebase.num = 1;
+    subtitle->timebase.den = 90000;
 
     switch ( pes->codec )
     {
@@ -2087,6 +2091,8 @@ static void pes_add_audio_to_title(
 
     audio->config.in.codec = pes->codec;
     audio->config.in.codec_param = pes->codec_param;
+    audio->config.in.timebase.num = 1;
+    audio->config.in.timebase.den = 90000;
 
     set_audio_description(audio, lang_for_code(pes->lang_code));
 
@@ -4191,7 +4197,7 @@ static void hb_ts_resolve_pid_types(hb_stream_t *stream)
             continue;
         }
         // 0xa2 is DTS-HD LBR used in HD-DVD and bluray for
-        // secondary audio streams. Libav can not decode yet.
+        // secondary audio streams. FFmpeg can not decode yet.
         // Having it in the audio list causes delays during scan
         // while we try to get stream parameters. So skip
         // this type for now.
@@ -5098,6 +5104,12 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
     audio->config.in.bitrate       = 0;
     audio->config.in.encoder_delay = codecpar->initial_padding;
 
+    // If we ever improve our pipeline to allow other time bases...
+    // audio->config.in.timebase.num  = st->time_base.num;
+    // audio->config.in.timebase.den  = st->time_base.den;
+    audio->config.in.timebase.num  = 1;
+    audio->config.in.timebase.den  = 90000;
+
     // set the input codec and extradata for Passthru
     switch (codecpar->codec_id)
     {
@@ -5302,6 +5314,11 @@ static void add_ffmpeg_subtitle( hb_title_t *title, hb_stream_t *stream, int id 
     hb_subtitle_t *subtitle = calloc( 1, sizeof(*subtitle) );
 
     subtitle->id = id;
+    // If we ever improve our pipeline to allow other time bases...
+    // subtitle->timebase.num = st->time_base.num;
+    // subtitle->timebase.den = st->time_base.den;
+    subtitle->timebase.num = 1;
+    subtitle->timebase.den = 90000;
 
     switch ( codecpar->codec_id )
     {
@@ -5315,7 +5332,7 @@ static void add_ffmpeg_subtitle( hb_title_t *title, hb_stream_t *stream, int id 
                         "subtitle colors likely to be wrong" );
             break;
         case AV_CODEC_ID_TEXT:
-        case AV_CODEC_ID_SRT:
+        case AV_CODEC_ID_SUBRIP:
             subtitle->format = TEXTSUB;
             subtitle->source = UTF8SUB;
             subtitle->config.dest = PASSTHRUSUB;
@@ -5327,7 +5344,7 @@ static void add_ffmpeg_subtitle( hb_title_t *title, hb_stream_t *stream, int id 
             subtitle->config.dest = PASSTHRUSUB;
             subtitle->codec = WORK_DECTX3GSUB;
             break;
-        case AV_CODEC_ID_SSA:
+        case AV_CODEC_ID_ASS:
             subtitle->format = TEXTSUB;
             subtitle->source = SSASUB;
             subtitle->config.dest = PASSTHRUSUB;
@@ -5403,7 +5420,7 @@ static void add_ffmpeg_attachment( hb_title_t *title, hb_stream_t *stream, int i
     switch ( codecpar->codec_id )
     {
         case AV_CODEC_ID_TTF:
-            // Libav sets codec ID based on mime type of the attachment
+            // FFmpeg sets codec ID based on mime type of the attachment
             type = FONT_TTF_ATTACH;
             break;
         default:
@@ -5528,12 +5545,14 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
     int i;
     for (i = 0; i < ic->nb_streams; ++i )
     {
-        if ( ic->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
-           !(ic->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC) &&
-             avcodec_find_decoder( ic->streams[i]->codecpar->codec_id ) &&
+        AVStream * st = ic->streams[i];
+
+        if ( st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+           !(st->disposition & AV_DISPOSITION_ATTACHED_PIC) &&
+             avcodec_find_decoder( st->codecpar->codec_id ) &&
              title->video_codec == 0 )
         {
-            AVCodecParameters *codecpar = ic->streams[i]->codecpar;
+            AVCodecParameters *codecpar = st->codecpar;
             if ( codecpar->format != AV_PIX_FMT_YUV420P &&
                  !sws_isSupportedInput( codecpar->format ) )
             {
@@ -5542,17 +5561,17 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
             }
             title->video_id = i;
             stream->ffmpeg_video_id = i;
-            if ( ic->streams[i]->sample_aspect_ratio.num &&
-                 ic->streams[i]->sample_aspect_ratio.den )
+            if ( st->sample_aspect_ratio.num &&
+                 st->sample_aspect_ratio.den )
             {
-                title->geometry.par.num = ic->streams[i]->sample_aspect_ratio.num;
-                title->geometry.par.den = ic->streams[i]->sample_aspect_ratio.den;
+                title->geometry.par.num = st->sample_aspect_ratio.num;
+                title->geometry.par.den = st->sample_aspect_ratio.den;
             }
 
             int j;
-            for (j = 0; j < ic->streams[i]->nb_side_data; j++)
+            for (j = 0; j < st->nb_side_data; j++)
             {
-                AVPacketSideData sd = ic->streams[i]->side_data[j];
+                AVPacketSideData sd = st->side_data[j];
                 switch (sd.type)
                 {
                     case AV_PKT_DATA_DISPLAYMATRIX:
@@ -5582,23 +5601,28 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
                 }
             }
 
-            title->video_codec = WORK_DECAVCODECV;
-            title->video_codec_param = codecpar->codec_id;
+            title->video_codec        = WORK_DECAVCODECV;
+            title->video_codec_param  = codecpar->codec_id;
+            // If we ever improve our pipeline to allow other time bases...
+            // title->video_timebase.num = st->time_base.num;
+            // title->video_timebase.den = st->time_base.den;
+            title->video_timebase.num = 1;
+            title->video_timebase.den = 90000;
             if (ic->iformat->raw_codec_id != AV_CODEC_ID_NONE)
             {
                 title->flags |= HBTF_RAW_VIDEO;
             }
         }
-        else if (ic->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO &&
-                 avcodec_find_decoder( ic->streams[i]->codecpar->codec_id))
+        else if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO &&
+                 avcodec_find_decoder( st->codecpar->codec_id))
         {
             add_ffmpeg_audio( title, stream, i );
         }
-        else if (ic->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE)
+        else if (st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE)
         {
             add_ffmpeg_subtitle( title, stream, i );
         }
-        else if (ic->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_ATTACHMENT)
+        else if (st->codecpar->codec_type == AVMEDIA_TYPE_ATTACHMENT)
         {
             add_ffmpeg_attachment( title, stream, i );
         }
@@ -5840,27 +5864,7 @@ hb_buffer_t * hb_ffmpeg_read( hb_stream_t *stream )
         buf->s.renderOffset = buf->s.start;
     }
 
-    /*
-     * Fill out buf->s.stop for subtitle packets
-     *
-     * libavcodec's MKV demuxer stores the duration of UTF-8 subtitles (AV_CODEC_ID_TEXT)
-     * in the 'convergence_duration' field for some reason.
-     *
-     * Other subtitles' durations are stored in the 'duration' field.
-     *
-     * VOB subtitles (AV_CODEC_ID_DVD_SUBTITLE) do not have their duration stored in
-     * either field. This is not a problem because the VOB decoder can extract this
-     * information from the packet payload itself.
-     *
-     * SSA subtitles (AV_CODEC_ID_SSA) do not have their duration stored in
-     * either field. This is not a problem because the SSA decoder can extract this
-     * information from the packet payload itself.
-     */
-    enum AVCodecID ffmpeg_pkt_codec;
-    enum AVMediaType codec_type;
-    ffmpeg_pkt_codec = stream->ffmpeg_ic->streams[stream->ffmpeg_pkt.stream_index]->codecpar->codec_id;
-    codec_type = stream->ffmpeg_ic->streams[stream->ffmpeg_pkt.stream_index]->codecpar->codec_type;
-    switch ( codec_type )
+    switch (s->codecpar->codec_type)
     {
         case AVMEDIA_TYPE_VIDEO:
             buf->s.type = VIDEO_BUF;
@@ -5880,19 +5884,20 @@ hb_buffer_t * hb_ffmpeg_read( hb_stream_t *stream )
             break;
 
         case AVMEDIA_TYPE_SUBTITLE:
+        {
+            // Fill out stop and duration for subtitle packets
+            int64_t pkt_duration = stream->ffmpeg_pkt.duration;
+            if (pkt_duration != AV_NOPTS_VALUE)
+            {
+                buf->s.duration = av_to_hb_pts(pkt_duration, tsconv, 0);
+                buf->s.stop = buf->s.start + buf->s.duration;
+            }
             buf->s.type = SUBTITLE_BUF;
-            break;
+        } break;
 
         default:
             buf->s.type = OTHER_BUF;
             break;
-    }
-    if ( ffmpeg_pkt_codec == AV_CODEC_ID_TEXT ||
-         ffmpeg_pkt_codec == AV_CODEC_ID_SRT  ||
-         ffmpeg_pkt_codec == AV_CODEC_ID_MOV_TEXT ) {
-        int64_t ffmpeg_pkt_duration = stream->ffmpeg_pkt.duration;
-        int64_t buf_duration = av_to_hb_pts( ffmpeg_pkt_duration, tsconv, 0 );
-        buf->s.stop = buf->s.start + buf_duration;
     }
 
     /*

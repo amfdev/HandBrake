@@ -50,11 +50,13 @@ static int decsubInit( hb_work_object_t * w, hb_job_t * job )
 
     hb_buffer_list_clear(&pv->list);
     hb_buffer_list_clear(&pv->list_pass);
-    pv->discard_subtitle = 1;
-    pv->seen_forced_sub  = 0;
-    pv->last_pts         = AV_NOPTS_VALUE;
-    pv->context          = context;
-    pv->job              = job;
+    pv->discard_subtitle      = 1;
+    pv->seen_forced_sub       = 0;
+    pv->last_pts              = AV_NOPTS_VALUE;
+    pv->context               = context;
+    context->pkt_timebase.num = w->subtitle->timebase.num;
+    context->pkt_timebase.den = w->subtitle->timebase.den;
+    pv->job                   = job;
 
     // Set decoder opts...
     AVDictionary * av_opts = NULL;
@@ -195,15 +197,7 @@ static int decsubWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     av_init_packet( &avp );
     avp.data = in->data;
     avp.size = in->size;
-    // libav wants pkt pts in AV_TIME_BASE units
-    if (in->s.start != AV_NOPTS_VALUE)
-    {
-        avp.pts = av_rescale(in->s.start, AV_TIME_BASE, 90000);
-    }
-    else
-    {
-        avp.pts = AV_NOPTS_VALUE;
-    }
+    avp.pts  = in->s.start;
 
     int has_subtitle = 0;
 
@@ -227,7 +221,7 @@ static int decsubWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         }
 
         /* Subtitles are "usable" if:
-         *   1. Libav returned a subtitle (has_subtitle) AND
+         *   1. FFmpeg returned a subtitle (has_subtitle) AND
          *   2. we're not doing Foreign Audio Search (!pv->job->indepth_scan) AND
          *   3. the sub is non-empty or we've seen one such sub before (!pv->discard_subtitle)
          * For forced-only extraction, usable subtitles also need to:
@@ -502,7 +496,7 @@ static void decsubClose( hb_work_object_t * w )
 {
     hb_work_private_t * pv = w->private_data;
     avcodec_flush_buffers( pv->context );
-    avcodec_close( pv->context );
+    avcodec_free_context( &pv->context );
 }
 
 hb_work_object_t hb_decpgssub =

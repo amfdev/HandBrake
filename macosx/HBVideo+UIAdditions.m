@@ -43,7 +43,7 @@
 {
     NSMutableArray *framerates = [NSMutableArray array];
 
-    [framerates addObject:NSLocalizedString(@"Same as source", @"")];
+    [framerates addObject:NSLocalizedString(@"Same as source", @"HBVideo -> frame rates display name")];
 
     for (const hb_rate_t *video_framerate = hb_video_framerate_get_next(NULL);
          video_framerate != NULL;
@@ -265,7 +265,7 @@
     }
     else
     {
-        return NSLocalizedString(@"Same as source", @"");
+        return NSLocalizedString(@"Same as source", @"HBVideo -> frame rates display name");
     }
 }
 
@@ -276,7 +276,7 @@
 
 - (id)reverseTransformedValue:(id)value
 {
-    if ([value isEqualTo:NSLocalizedString(@"Same as source", @"")])
+    if ([value isEqualTo:NSLocalizedString(@"Same as source", @"HBVideo -> frame rates display name")])
     {
         return @0;
     }
@@ -410,6 +410,34 @@
     {
         return value;
     }
+}
+
+@end
+
+@implementation HBVideo (EncoderAdditions)
+
+- (BOOL)isUnparsedSupported:(int)encoder
+{
+    return (encoder & HB_VCODEC_X264_MASK) != 0;
+}
+- (BOOL)isPresetSystemSupported:(int)encoder
+{
+    return hb_video_encoder_get_presets(encoder) != NULL;
+}
+
+- (BOOL)isSimpleOptionsPanelSupported:(int)encoder
+{
+    return (encoder & HB_VCODEC_FFMPEG_MASK) != 0;
+}
+
+- (BOOL)isOldAdvancedPanelSupported:(int)encoder
+{
+    return (encoder & HB_VCODEC_X264_MASK) != 0;
+}
+
+- (void)qualityLimitsForEncoder:(int)encoder low:(float *)low high:(float *)high granularity:(float *)granularity direction:(int *)direction
+{
+    hb_video_quality_get_limits(encoder, low, high, granularity, direction);
 }
 
 @end

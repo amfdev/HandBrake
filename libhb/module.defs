@@ -1,7 +1,7 @@
 __deps__ := A52DEC BZIP2 LIBVPX FFMPEG FREETYPE LAME LIBASS LIBDCA \
     LIBDVDREAD LIBDVDNAV LIBICONV LIBSAMPLERATE LIBTHEORA LIBVORBIS LIBOGG \
     LIBXML2 PTHREADW32 X264 X265 ZLIB LIBBLURAY FDKAAC LIBMFX LIBGNURX JANSSON \
-    HARFBUZZ LIBOPUS AMF
+    HARFBUZZ LIBOPUS LIBSPEEX AMF
 
 ifeq (,$(filter $(BUILD.system),darwin cygwin mingw))
     __deps__ += FONTCONFIG
@@ -42,8 +42,8 @@ LIBHB.out += $(LIBHB.a)
 
 ###############################################################################
 
-ifeq (1,$(FEATURE.libav_aac))
-LIBHB.GCC.D += USE_LIBAV_AAC
+ifeq (1,$(FEATURE.ffmpeg_aac))
+LIBHB.GCC.D += USE_FFMPEG_AAC
 endif
 LIBHB.GCC.D += __LIBHB__ USE_PTHREAD
 LIBHB.GCC.I += $(LIBHB.build/) $(CONTRIB.build/)include
@@ -82,6 +82,14 @@ ifeq (1,$(FEATURE.qsv))
     LIBHB.GCC.D += USE_QSV HAVE_THREADS=1
 endif
 
+ifeq (1,$(FEATURE.vce))
+    LIBHB.GCC.D += USE_VCE
+endif
+
+ifeq (1,$(FEATURE.nvenc))
+    LIBHB.GCC.D += USE_NVENC
+endif
+
 ifeq (1,$(FEATURE.x265))
     LIBHB.GCC.D += USE_X265
 endif
@@ -101,38 +109,15 @@ endif
 
 ###############################################################################
 
-## when defined this gives us the subdir name, or flavor of asm implementation
-ifneq (disabled,$(FEATURE.asm))
-
-LIBHB.yasm.src/   = $(LIBHB.src/)$(FEATURE.asm)/
-LIBHB.yasm.build/ = $(LIBHB.build/)$(FEATURE.asm)/
-LIBHB.yasm.asm    = $(LIBHB.yasm.src/)deinterlace-a.asm
-LIBHB.yasm.o      = $(LIBHB.yasm.asm:$(LIBHB.yasm.src/)%.asm=$(LIBHB.yasm.build/)%.o)
-LIBHB.yasm.d      = $(wildcard $(LIBHB.yasmsrc/)*.h)
-
-LIBHB.YASM.I     = $(LIBHB.yasm.src/)
-LIBHB.YASM.ASM_O = $(strip $(YASM.exe) \
-    -f $(LIBHB.YASM.f) \
-    -m $(LIBHB.YASM.m) \
-    $(LIBHB.YASM.D:%=-D%) \
-    $(LIBHB.YASM.I:%=-I%) \
-    -o $(1) $(2))
-
-LIBHB.out += $(LIBHB.yasm.o)
-
-endif
-
-###############################################################################
-
 ifeq (1-mingw,$(BUILD.cross)-$(BUILD.system))
 
 LIBHB.dll = $(LIBHB.build/)hb.dll
 LIBHB.lib = $(LIBHB.build/)hb.lib
 
 LIBHB.dll.libs = $(foreach n, \
-        ass avcodec avformat avfilter avutil avresample dvdnav dvdread \
+        ass avformat avfilter avcodec avutil avresample swresample postproc dvdnav dvdread \
         freetype mp3lame samplerate swscale vpx theora vorbis vorbisenc ogg \
-        x264 xml2 bluray jansson harfbuzz opus, \
+        x264 xml2 bluray jansson harfbuzz opus speex, \
         $(CONTRIB.build/)lib/lib$(n).a )
 
 ifeq (1,$(FEATURE.fdk_aac))
@@ -185,8 +170,14 @@ else
     LIBHB.GCC.l += z
 endif
 
+ifneq ($(HAS.xz),1)
+LIBHB.dll.libs += $(CONTRIB.build/)lib/liblzma.a
+else
+    LIBHB.GCC.l += lzma
+endif
+
 LIBHB.GCC.args.extra.dylib++ += -Wl,--out-implib,$(LIBHB.lib)
-LIBHB.GCC.l += ws2_32 uuid ole32
+LIBHB.GCC.l += bcrypt ws2_32 uuid ole32
 ifeq ($(HAS.dlfcn),1)
     LIBHB.GCC.l += dl
 endif

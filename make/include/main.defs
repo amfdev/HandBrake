@@ -7,34 +7,6 @@ include $(SRC/)make/include/tool.defs
 
 ###############################################################################
 
-ifeq (1,$(FEATURE.local_pkgconfig))
-    MODULES += contrib/pkgconfig
-endif
-
-HB_TOOLS_PATH =
-ifeq (1,$(FEATURE.local_cmake))
-    MODULES += contrib/cmake
-    HB_TOOLS_PATH = $(call fn.ABSOLUTE,$(CONTRIB.build/)bin)
-endif
-
-ifeq (1,$(FEATURE.local_autotools))
-    MODULES += contrib/autoconf
-    MODULES += contrib/automake
-    MODULES += contrib/libtool
-    MODULES += contrib/m4
-ifneq (1,$(FEATURE.local_pkgconfig))
-    MODULES += contrib/pkgconfig
-endif
-    AUTOTOOL_MODULES = AUTOCONF AUTOMAKE LIBTOOL M4 PKGCONFIG
-    HB_TOOLS_PATH = $(call fn.ABSOLUTE,$(CONTRIB.build/)bin)
-else
-    AUTOTOOL_MODULES =
-endif
-
-ifneq (,$(HB_TOOLS_PATH))
-    PATH := $(HB_TOOLS_PATH):$(PATH)
-endif
-
 ifneq (,$(filter $(BUILD.system),cygwin mingw))
 ifneq ($(HAS.bz2),1)
     MODULES += contrib/bzip2
@@ -50,6 +22,7 @@ ifneq (,$(filter $(BUILD.system),darwin cygwin mingw))
     MODULES += contrib/libogg
     MODULES += contrib/libvorbis
     MODULES += contrib/libopus
+    MODULES += contrib/libspeex
     MODULES += contrib/libtheora
     MODULES += contrib/libsamplerate
     MODULES += contrib/lame
@@ -59,14 +32,10 @@ ifneq (,$(filter $(BUILD.system),darwin cygwin mingw))
 endif
 
 ifeq (1,$(FEATURE.flatpak))
+    MODULES += contrib/libopus
     MODULES += contrib/lame
     MODULES += contrib/jansson
     MODULES += contrib/x264
-    MODULES += contrib/harfbuzz
-    MODULES += contrib/fribidi
-    MODULES += contrib/freetype
-    MODULES += contrib/libass
-    MODULES += contrib/yasm
 endif
 
 ifeq (1,$(FEATURE.fdk_aac))
@@ -98,9 +67,24 @@ ifeq (1,$(FEATURE.qsv))
     MODULES += contrib/libmfx
 endif
 
+ifeq (1,$(FEATURE.vce))
+    MODULES += contrib/amf
+endif
+
+ifeq (1,$(FEATURE.nvenc))
+    MODULES += contrib/nvenc
+endif
+
+ifneq (,$(filter $(BUILD.system),darwin))
+    MODULES += contrib/xz
+endif
+
 ifneq (,$(filter $(BUILD.system),cygwin mingw))
 ifneq ($(HAS.iconv),1)
     MODULES += contrib/libiconv
+endif
+ifneq ($(HAS.xz),1)
+    MODULES += contrib/xz
 endif
 ifneq ($(HAS.libz),1)
     MODULES += contrib/zlib
@@ -150,10 +134,6 @@ endif
 ifeq (1-gnu,$(FEATURE.gtk)-$(BUILD.system))
     ## build gtk when gtk+gnu
     MODULES += gtk
-endif
-
-ifeq (1,$(FEATURE.local_yasm))
-    MODULES += contrib/yasm
 endif
 
 ###############################################################################

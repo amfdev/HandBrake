@@ -10,6 +10,11 @@ CONTRIB.spec      = $(if $(filter 1,$(BUILD.cross)),$(HOST.spec))
 ##
 define import.CONTRIB.defs
     ##
+    ## keep a list of the enabled contrib packages
+    ##
+    CONTRIBS += $(1)
+
+    ##
     ## import gcc/g++ support mainly so we can force contrib choice of
     ## gcc executable, and debug/optimization flags.
     ##
@@ -21,7 +26,7 @@ define import.CONTRIB.defs
     $(1).src/   = $$(SRC/)contrib/$($(1).dir)/
     $(1).build/ = $$(CONTRIB.build/)$($(1).dir)/
     ## add prerequisites and autotool modules for all contribs
-    $(1).deps   = $$(foreach n,$($(1).prerequisites) $(if $(filter $1,$(AUTOTOOL_MODULES)),,$(AUTOTOOL_MODULES)),$$($$n.INSTALL.target))
+    $(1).deps   = $$(foreach n,$($(1).prerequisites),$$($$n.INSTALL.target))
     $(1).build_dir =
 
     ##
@@ -118,7 +123,7 @@ define import.CONTRIB.defs
         $(1).CONFIGURE.env.CFLAGS   = CFLAGS="-I$$(call fn.ABSOLUTE,$(CONTRIB.build/))include $$(call fn.ARGS,$(1).GCC,*archs *sysroot *minver ?c_std ?extra *D)"
         $(1).CONFIGURE.env.CXXFLAGS = CXXFLAGS="-I$$(call fn.ABSOLUTE,$(CONTRIB.build/))include $$(call fn.ARGS,$(1).GCC,*archs *sysroot *minver ?cxx_std ?extra *D)"
     endif
-    $(1).CONFIGURE.env.CPPFLAGS = CPPFLAGS="-I$$(call fn.ABSOLUTE,$(CONTRIB.build/))include $$(call fn.ARGS,$(1).GCC,*archs *sysroot *minver ?extra *D)"
+    $(1).CONFIGURE.env.CPPFLAGS = CPPFLAGS="-I$$(call fn.ABSOLUTE,$(CONTRIB.build/))include $$(call fn.ARGS,$(1).GCC,*archs *sysroot *minver *D)"
     $(1).CONFIGURE.env.LDFLAGS  = LDFLAGS="-L$$(call fn.ABSOLUTE,$(CONTRIB.build/))lib $$(call fn.ARGS,$(1).GCC,*archs *sysroot *minver ?extra.exe *D)"
     $(1).CONFIGURE.env.PKG_CONFIG_PATH  = PKG_CONFIG_PATH="$$(call fn.ABSOLUTE,$$(CONTRIB.build/))lib/pkgconfig"
 

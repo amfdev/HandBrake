@@ -19,6 +19,7 @@
     <UserControl.Resources>
         <Converters:BooleanConverter x:Key="booleanConverter" />
         <Converters:PresetsMenuConverter x:Key="presetsMenuConverter"/>
+        <Converters:LongToIntConverter x:Key="longToIntConverter" />
 
         <Style TargetType="Button">
             <Setter Property="Padding" Value="8,2" />
@@ -64,6 +65,11 @@
             <Menu Height="23"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Top">
+                <Menu.Resources>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Height" Value="23" />
+                    </Style>
+                </Menu.Resources>
                 <MenuItem Header="_File">
                     <MenuItem Header="{x:Static Properties:ResourcesUI.MainView_SourceOpen}" cal:Message.Attach="[Event Click] = [Action SelectSourceWindow]" InputGestureText="Alt + O" />
                     <Separator />
@@ -120,7 +126,7 @@
                 </MenuItem>
 
                 <MenuItem Header="_Help">
-                    <MenuItem Header="_HandBrake Documentation (HTTP)" cal:Message.Attach="[Event Click] = [Action LaunchHelp]" InputGestureText="F1">
+                    <MenuItem Header="_HandBrake Documentation (HTTPS)" cal:Message.Attach="[Event Click] = [Action LaunchHelp]" InputGestureText="F1">
                         <MenuItem.Icon>
                             <Image Width="16" Height="16"  Source="Images/information.png" />
                         </MenuItem.Icon>
@@ -354,7 +360,7 @@
                                   MinWidth="60"
                                   Margin="5,0,0,0"
                                   ItemsSource="{Binding StartEndRangeItems}"
-                                  SelectedItem="{Binding SelectedStartPoint}"
+                                  SelectedItem="{Binding SelectedStartPoint, Converter={StaticResource longToIntConverter}}"
                                   ToolTip="{x:Static Properties:ResourcesTooltips.MainView_StartPoint}"
                                   Visibility="{Binding ShowTextEntryForPointToPointMode,
                                                        Converter={StaticResource boolToVisConverter},
@@ -371,7 +377,7 @@
                                   MinWidth="60"
                                   Margin="4,0,0,0"
                                   ItemsSource="{Binding StartEndRangeItems}"
-                                  SelectedItem="{Binding SelectedEndPoint}"
+                                  SelectedItem="{Binding SelectedEndPoint, Converter={StaticResource longToIntConverter}}"
                                   ToolTip="{x:Static Properties:ResourcesTooltips.MainView_EndPoint}"
                                   Visibility="{Binding ShowTextEntryForPointToPointMode,
                                                        Converter={StaticResource boolToVisConverter},

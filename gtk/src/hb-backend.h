@@ -169,7 +169,8 @@ const char* ghb_lookup_filter_name(int filter_id, const char *short_name, int pr
 gchar* ghb_get_tmp_dir();
 gint ghb_find_closest_audio_samplerate(gint rate);
 
-void ghb_init_lang_list_box(GtkListBox *list_box);
+void ghb_init_lang_list_model(GtkTreeView *tv);
+void ghb_init_lang_list(GtkTreeView *tv, signal_user_data_t *ud);
 
 void ghb_init_combo_box(GtkComboBox *combo);
 void ghb_audio_encoder_opts_set(GtkComboBox *combo);
@@ -183,7 +184,6 @@ void ghb_audio_samplerate_opts_filter(GtkComboBox *combo, gint acodec);
 int ghb_lookup_lang(const GhbValue *glang);
 const iso639_lang_t* ghb_iso639_lookup_by_int(int idx);
 void ghb_update_display_aspect_label(signal_user_data_t *ud);
-gchar* ghb_create_title_label(const hb_title_t *title);
 
 // libhb lookup helpers
 const hb_title_t* ghb_lookup_title(int title_id, int *index);
@@ -231,6 +231,8 @@ hb_handle_t* ghb_scan_handle(void);
 hb_handle_t* ghb_queue_handle(void);
 hb_handle_t* ghb_live_handle(void);
 void ghb_sanitize_volname(gchar *name);
+gchar* ghb_create_title_label(const hb_title_t *title);
 gchar* ghb_create_source_label(const hb_title_t * title);
+gchar* ghb_create_volume_label(const hb_title_t * title);
 
 #endif // _HBBACKEND_H_

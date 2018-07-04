@@ -14,8 +14,8 @@ namespace HandBrakeWPF.Services.Encode.Model
 
     using Caliburn.Micro;
 
-    using HandBrake.ApplicationServices.Interop.Model;
-    using HandBrake.ApplicationServices.Interop.Model.Encoding;
+    using HandBrake.Interop.Interop.Model;
+    using HandBrake.Interop.Interop.Model.Encoding;
 
     using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Services.Encode.Model.Models;
@@ -184,12 +184,12 @@ namespace HandBrakeWPF.Services.Encode.Model
         /// <summary>
         /// Gets or sets StartPoint.
         /// </summary>
-        public int StartPoint { get; set; }
+        public long StartPoint { get; set; }
 
         /// <summary>
         /// Gets or sets EndPoint.
         /// </summary>
-        public int EndPoint { get; set; }
+        public long EndPoint { get; set; }
 
         #endregion
 

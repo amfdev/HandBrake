@@ -15,15 +15,16 @@
 
 struct hb_bd_s
 {
-    char         * path;
-    BLURAY       * bd;
-    int            title_count;
-    BLURAY_TITLE_INFO  ** title_info;
-    int64_t        duration;
-    hb_stream_t  * stream;
-    int            chapter;
-    int            next_chap;
-    hb_handle_t  * h;
+    char                    * path;
+    BLURAY                  * bd;
+    int                       title_count;
+    BLURAY_TITLE_INFO      ** title_info;
+    const BLURAY_DISC_INFO  * disc_info;
+    int64_t                   duration;
+    hb_stream_t             * stream;
+    int                       chapter;
+    int                       next_chap;
+    hb_handle_t             * h;
 };
 
 /***********************************************************************
@@ -68,6 +69,7 @@ hb_bd_t * hb_bd_init( hb_handle_t *h, char * path )
         d->title_info[ii] = bd_get_title_info( d->bd, ii, 0 );
     }
     qsort(d->title_info, d->title_count, sizeof( BLURAY_TITLE_INFO* ), title_info_compare_mpls );
+    d->disc_info = bd_get_disc_info(d->bd);
     d->path = strdup( path );
 
     return d;
@@ -115,9 +117,11 @@ static void add_subtitle(int track, hb_list_t *list_subtitle, BLURAY_STREAM_INFO
     snprintf(subtitle->iso639_2, sizeof( subtitle->iso639_2 ), "%s",
              lang->iso639_2);
 
-    subtitle->reg_desc = STR4_TO_UINT32("HDMV");
-    subtitle->stream_type = bdsub->coding_type;
-    subtitle->codec = codec;
+    subtitle->reg_desc     = STR4_TO_UINT32("HDMV");
+    subtitle->stream_type  = bdsub->coding_type;
+    subtitle->codec        = codec;
+    subtitle->timebase.num = 1;
+    subtitle->timebase.den = 90000;
 
     hb_log( "bd: subtitle id=0x%x, lang=%s, 3cc=%s", subtitle->id,
             subtitle->lang, subtitle->iso639_2 );
@@ -202,7 +206,10 @@ static void add_audio(int track, hb_list_t *list_audio, BLURAY_STREAM_INFO *bdau
     hb_log("bd: audio id=0x%x, lang=%s (%s), 3cc=%s", audio->id,
            audio->config.lang.simple, codec_name, audio->config.lang.iso639_2);
 
-    audio->config.in.track = track;
+    audio->config.in.track        = track;
+    audio->config.in.timebase.num = 1;
+    audio->config.in.timebase.den = 90000;
+
     hb_list_add( list_audio, audio );
     return;
 }
@@ -272,18 +279,32 @@ hb_title_t * hb_bd_title_scan( hb_bd_t * d, int tt, uint64_t min_duration )
     title->type = HB_BD_TYPE;
     title->reg_desc = STR4_TO_UINT32("HDMV");
 
-    char * p_cur, * p_last = d->path;
-    for( p_cur = d->path; *p_cur; p_cur++ )
+    if (d->disc_info->disc_name != NULL && d->disc_info->disc_name[0] != 0)
     {
-        if( IS_DIR_SEP(p_cur[0]) && p_cur[1] )
-        {
-            p_last = &p_cur[1];
-        }
+        strncpy(title->name, d->disc_info->disc_name, sizeof(title->name));
+        title->name[sizeof(title->name) - 1] = 0;
     }
-    snprintf( title->name, sizeof( title->name ), "%s", p_last );
-    char *dot_term = strrchr(title->name, '.');
-    if (dot_term)
-        *dot_term = '\0';
+    else if (d->disc_info->udf_volume_id != NULL &&
+             d->disc_info->udf_volume_id[0] != 0)
+    {
+        strncpy(title->name, d->disc_info->udf_volume_id, sizeof(title->name));
+        title->name[sizeof(title->name) - 1] = 0;
+    }
+    else
+    {
+        char * p_cur, * p_last = d->path;
+        for( p_cur = d->path; *p_cur; p_cur++ )
+        {
+            if( IS_DIR_SEP(p_cur[0]) && p_cur[1] )
+            {
+                p_last = &p_cur[1];
+            }
+        }
+        snprintf(title->name, sizeof( title->name ), "%s", p_last);
+        char *dot_term = strrchr(title->name, '.');
+        if (dot_term)
+            *dot_term = '\0';
+    }
 
     title->vts = 0;
     title->ttn = 0;
@@ -398,8 +419,10 @@ hb_title_t * hb_bd_title_scan( hb_bd_t * d, int tt, uint64_t min_duration )
             title->container_dar.den = 9;
             break;
         default:
-            hb_log( "bd: unknown aspect" );
-            goto fail;
+            hb_log( "bd: unknown aspect %d, assuming 16:9", bdvideo->aspect );
+            title->container_dar.num = 16;
+            title->container_dar.den = 9;
+            break;
     }
     hb_log("bd: aspect = %d:%d",
            title->container_dar.num, title->container_dar.den);

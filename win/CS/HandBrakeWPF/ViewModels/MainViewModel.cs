@@ -22,7 +22,7 @@ namespace HandBrakeWPF.ViewModels
 
     using Caliburn.Micro;
 
-    using HandBrake.ApplicationServices.Interop;
+    using HandBrake.Interop.Interop;
 
     using HandBrakeWPF.Commands;
     using HandBrakeWPF.Commands.Menu;
@@ -56,6 +56,7 @@ namespace HandBrakeWPF.ViewModels
     using DataFormats = System.Windows.DataFormats;
     using DragEventArgs = System.Windows.DragEventArgs;
     using Execute = Caliburn.Micro.Execute;
+    using HandBrakeInstanceManager = HandBrakeWPF.Instance.HandBrakeInstanceManager;
     using LogManager = HandBrakeWPF.Helpers.LogManager;
     using MessageBox = System.Windows.MessageBox;
     using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
@@ -169,6 +170,7 @@ namespace HandBrakeWPF.ViewModels
             IFiltersViewModel filtersViewModel, IAudioViewModel audioViewModel, ISubtitlesViewModel subtitlesViewModel,
             IX264ViewModel advancedViewModel, IChaptersViewModel chaptersViewModel, IStaticPreviewViewModel staticPreviewViewModel,
             IQueueViewModel queueViewModel, IMetaDataViewModel metaDataViewModel, INotifyIconService notifyIconService)
+            : base(userSettingService)
         {
             this.scanService = scanService;
             this.presetService = presetService;
@@ -809,7 +811,7 @@ namespace HandBrakeWPF.ViewModels
         {
             get
             {
-                return this.CurrentTask.StartPoint;
+                return this.CurrentTask.Angle;
             }
 
             set
@@ -827,12 +829,13 @@ namespace HandBrakeWPF.ViewModels
         /// <summary>
         /// Gets or sets SelectedStartPoint.
         /// </summary>
-        public int SelectedStartPoint
+        public long SelectedStartPoint
         {
             get
             {
                 return this.CurrentTask.StartPoint;
             }
+
             set
             {
                 this.CurrentTask.StartPoint = value;
@@ -858,12 +861,13 @@ namespace HandBrakeWPF.ViewModels
         /// <summary>
         /// Gets or sets SelectedEndPoint.
         /// </summary>
-        public int SelectedEndPoint
+        public long SelectedEndPoint
         {
             get
             {
                 return this.CurrentTask.EndPoint;
             }
+
             set
             {
                 this.CurrentTask.EndPoint = value;
@@ -1656,10 +1660,19 @@ namespace HandBrakeWPF.ViewModels
         public void FileScan()
         {
             OpenFileDialog dialog = new OpenFileDialog { Filter = "All files (*.*)|*.*" };
+
+            string mruDir = this.GetMru(Constants.FileScanMru);
+            if (!string.IsNullOrEmpty(mruDir))
+            {
+                dialog.InitialDirectory = mruDir;
+            }
+
             bool? dialogResult = dialog.ShowDialog();
 
             if (dialogResult.HasValue && dialogResult.Value)
             {
+                this.SetMru(Constants.FileScanMru, Path.GetDirectoryName(dialog.FileName));
+
                 this.StartScan(dialog.FileName, this.TitleSpecificScan);
             }
         }
@@ -1832,7 +1845,29 @@ namespace HandBrakeWPF.ViewModels
                 string[] fileNames = e.Data.GetData(DataFormats.FileDrop, true) as string[];
                 if (fileNames != null && fileNames.Any() && (File.Exists(fileNames[0]) || Directory.Exists(fileNames[0])))
                 {
-                    this.StartScan(fileNames[0], 0);
+                    string videoContent = fileNames.FirstOrDefault(f => Path.GetExtension(f)?.ToLower() != ".srt");
+                    if (!string.IsNullOrEmpty(videoContent))
+                    {
+                        this.StartScan(videoContent, 0);
+                        return;
+                    }
+
+                    if (this.SelectedTitle == null)
+                    {
+                        MessageBox.Show(
+                            ResourcesUI.MainView_SubtitleBeforeScanError,
+                            Resources.Error,
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
+
+                    // StartScan is not synchronous, so for now we don't support adding both srt and video file at the same time. 
+                    string[] subtitleFiles = fileNames.Where(f => Path.GetExtension(f)?.ToLower() == ".srt").ToArray();
+                    if (subtitleFiles.Any())
+                    {
+                        this.SwitchTab(5);
+                        this.SubtitleViewModel.Import(subtitleFiles);
+                    }
                 }
             }
 
@@ -1866,6 +1901,13 @@ namespace HandBrakeWPF.ViewModels
                                              ? (extension == ".mp4" || extension == ".m4v" ? 1 : 2)
                                              : (this.CurrentTask.OutputFormat == OutputFormat.Mkv ? 2 : 0);
 
+            string mruDir = this.GetMru(Constants.FileSaveMru);
+            if (!string.IsNullOrEmpty(mruDir))
+            {
+                saveFileDialog.InitialDirectory = mruDir;
+            }
+
+            // If we have a current directory, override the MRU.
             if (this.CurrentTask != null && !string.IsNullOrEmpty(this.CurrentTask.Destination))
             {
                 if (Directory.Exists(Path.GetDirectoryName(this.CurrentTask.Destination)))
@@ -1879,6 +1921,8 @@ namespace HandBrakeWPF.ViewModels
             bool? result = saveFileDialog.ShowDialog();
             if (result.HasValue && result.Value)
             {
+                this.SetMru(Constants.FileSaveMru, Path.GetDirectoryName(saveFileDialog.FileName));
+
                 if (saveFileDialog.FileName == this.ScannedSource.ScanPath)
                 {
                     this.errorService.ShowMessageBox(Resources.Main_SourceDestinationMatchError, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
@@ -2264,8 +2308,8 @@ namespace HandBrakeWPF.ViewModels
                 // Update the Main Window
                 this.NotifyOfPropertyChange(() => this.Destination);
                 this.SelectedAngle = this.CurrentTask.Angle;
-                int start = this.CurrentTask.StartPoint;
-                int end = this.CurrentTask.EndPoint;
+                long start = this.CurrentTask.StartPoint;
+                long end = this.CurrentTask.EndPoint;
                 this.SelectedPointToPoint = this.CurrentTask.PointToPointMode; // Force reset.
                 this.SelectedStartPoint = start;
                 this.SelectedEndPoint = end;
@@ -2747,7 +2791,6 @@ namespace HandBrakeWPF.ViewModels
                 this.NotifyOfPropertyChange(() => this.ShowAdvancedTab);
             }
         }
-
         #endregion
     }
 }

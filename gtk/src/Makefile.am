@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 icons =	\
-	hb-icon.svg
+	hb-icon.svg fr.handbrake.ghb.svg
 
 icons_dep =	\
 	icons/24x24/apps/hb-remove.png \
@@ -33,16 +33,22 @@ icons_dep =	\
 	icons/scalable/apps/hb-remove.svg \
 	icons/scalable/apps/hb-complete.svg \
 	icons/scalable/apps/hb-edit.svg \
-	icons/scalable/apps/hb-icon.svg
+	icons/scalable/apps/hb-icon.svg \
+	icons/scalable/apps/fr.handbrake.ghb.svg
 
-if GHB_FLATPAK
-icons += fr.handbrake.ghb.svg
 hb_menu = fr.handbrake.ghb.desktop
-flatpak_appdata = fr.handbrake.ghb.appdata.xml
-else
-hb_menu = ghb.desktop
-endif
 
+@INTLTOOL_XML_RULE@
+appdatadir = $(datarootdir)/metainfo
+appdata_in_files = fr.handbrake.ghb.appdata.xml.in
+appdata_DATA = $(appdata_in_files:.xml.in=.xml)
+dist_appdata_DATA = $(appdata_files)
+
+EXTRA_DIST = \
+	$(appdata_in_files)
+
+DISTCLEANFILES = \
+	$(appdata_files)
 
 AM_CPPFLAGS = \
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
@@ -167,6 +173,9 @@ widget_reverse.deps: makedeps.py
 widget.deps: makedeps.py
 	python2 $(srcdir)/makedeps.py
 
+fr.handbrake.ghb.appdata.xml.in: fr.handbrake.ghb.appdata.xml.template
+	sed -e 's^RELEASE_TAG^<release version="$(HB.version)" date="$(word 1,$(HB.repo.date))" />^' $< > $@
+
 ghbcellrenderertext.$(OBJEXT): marshalers.h
 
 $(srcdir)/marshalers.h: marshalers.list
@@ -189,9 +198,6 @@ uninstall-local:
 		echo "***   $(gtk_update_icon_cache)"; \
 	fi
 	rm -f $(DESTDIR)/$(datadir)/applications/$(hb_menu)
-	@-if test -n "$(flatpak_appdata)"; then \
-		rm -f $(DESTDIR)/$(datadir)/appdata/$(flatpak_appdata); \
-	fi
 
 install-data-local:
 	for icon in $(icons); do \
@@ -207,7 +213,3 @@ install-data-local:
 	fi
 	mkdir -p $(DESTDIR)/$(datadir)/applications/; \
 	$(INSTALL_DATA) $(srcdir)/$(hb_menu) $(DESTDIR)/$(datadir)/applications/$(hb_menu)
-	@-if test -n "$(flatpak_appdata)"; then \
-		mkdir -p $(DESTDIR)/$(datadir)/appdata/; \
-		$(INSTALL_DATA) $(srcdir)/$(flatpak_appdata) $(DESTDIR)/$(datadir)/appdata/$(flatpak_appdata); \
-	fi

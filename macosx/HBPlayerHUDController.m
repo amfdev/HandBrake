@@ -36,12 +36,6 @@
 {
     [super loadView];
 
-    if (NSClassFromString(@"NSVisualEffectView") == NO)
-    {
-        self.currentTimeLabel.textColor = [NSColor whiteColor];
-        self.remaingTimeLabel.textColor = [NSColor whiteColor];
-    }
-
     if ([[NSFont class] respondsToSelector:@selector(monospacedDigitSystemFontOfSize:weight:)]) {
         _monospacedAttr = @{NSFontAttributeName: [NSFont monospacedDigitSystemFontOfSize:[NSFont smallSystemFontSize] weight:NSFontWeightRegular]};
     }
@@ -125,7 +119,7 @@
     NSArray<HBPlayerTrack *> *audioTracks = self.player.audioTracks;
     if (audioTracks.count)
     {
-        [self _addSectionTitle:NSLocalizedString(@"Audio", nil)];
+        [self _addSectionTitle:NSLocalizedString(@"Audio", @"Player HUD -> audio menu")];
         [self _addTracksItemFromArray:audioTracks selector:@selector(enableAudioTrack:)];
     }
 
@@ -136,7 +130,7 @@
         {
             [self.tracksSelection.menu addItem:[NSMenuItem separatorItem]];
         }
-        [self _addSectionTitle:NSLocalizedString(@"Subtitles", nil)];
+        [self _addSectionTitle:NSLocalizedString(@"Subtitles", @"Player HUD -> subtitles menu")];
         [self _addTracksItemFromArray:subtitlesTracks selector:@selector(enableSubtitlesTrack:)];
     }
 }
@@ -309,11 +303,11 @@
             [self.player play];
             self.player.rate = rate;
         }
-        else if (event.modifierFlags & NSAlternateKeyMask && key == NSLeftArrowFunctionKey)
+        else if (event.modifierFlags & NSEventModifierFlagOption && key == NSLeftArrowFunctionKey)
         {
             [self.player gotoBeginning];
         }
-        else if (event.modifierFlags & NSAlternateKeyMask && key == NSRightArrowFunctionKey)
+        else if (event.modifierFlags & NSEventModifierFlagOption && key == NSRightArrowFunctionKey)
         {
             [self.player gotoEnd];
         }

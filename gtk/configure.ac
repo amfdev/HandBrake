@@ -113,7 +113,7 @@ case $host in
 	linux*)
 	  ;;
     esac
-    GHB_PACKAGES="gthread-2.0 gio-2.0 libnotify gmodule-2.0"
+    GHB_PACKAGES="gthread-2.0 gio-2.0 gmodule-2.0"
 	mingw_flag=no
     ;;
 esac
@@ -121,6 +121,7 @@ esac
 PKG_PROG_PKG_CONFIG
 
 #PKG_CHECK_MODULES([GHB_GTK_4_0], [gtk+-4.0 >= 3.92], [HAVE_GTK_400=1], [HAVE_GTK_400=0])
+HAVE_GTK_400=0
 PKG_CHECK_MODULES([GHB_GTK_3_16], [gtk+-3.0 >= 3.16], [HAVE_GTK_316=1], [HAVE_GTK_316=0])
 PKG_CHECK_MODULES([GHB_GTK_3_14], [gtk+-3.0 >= 3.14], [HAVE_GTK_314=1], [HAVE_GTK_314=0])
 PKG_CHECK_MODULES([GHB_GTK_3_12], [gtk+-3.0 >= 3.12], [HAVE_GTK_312=1], [HAVE_GTK_312=0])
@@ -177,7 +178,7 @@ PKG_CHECK_MODULES(GHB, [$GHB_PACKAGES])
 
 GHB_CFLAGS="$HBINC $GHB_CFLAGS"
 
-HB_LIBS="-lhandbrake -lavresample -lavformat -lavcodec -lavfilter -lavutil -ldvdnav -ldvdread -lmp3lame -lvorbis -lvorbisenc -logg -lsamplerate -lx264 -lswscale -ltheoraenc -ltheoradec -lvpx -lz -lbz2 -lbluray -lass -lfontconfig -lfreetype -lxml2 -ljansson -lopus -lamf"
+HB_LIBS="-lhandbrake -lavformat -lavfilter -lavcodec -lavutil -lavresample -lswresample -lpostproc -ldvdnav -ldvdread -lmp3lame -lvorbis -lvorbisenc -logg -lsamplerate -lx264 -lswscale -ltheoraenc -ltheoradec -lvpx -lz -lbz2 -lbluray -lass -lfontconfig -lfreetype -lxml2 -ljansson -lopus -lspeex -llzma"
 
 case $host in
   *-*-mingw*)

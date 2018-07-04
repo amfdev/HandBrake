@@ -57,7 +57,6 @@
         @"HBShowOpenPanelAtLaunch":         @YES,
         @"DefaultMpegExtension":            @"Auto",
         @"UseDvdNav":                       @"YES",
-        @"HBDefaultPresetsDrawerShow":      @YES,
         // Archive the URL because they aren't supported in plist.
         @"HBLastDestinationDirectory":      [NSKeyedArchiver archivedDataWithRootObject:desktopURL],
         @"HBLastSourceDirectory":           [NSKeyedArchiver archivedDataWithRootObject:desktopURL],
@@ -72,7 +71,6 @@
         @"x264CqSliderFractional":          @"0.50",
         @"HBShowAdvancedTab":               @NO,
         @"HBAutoNamingFormat":              @[@"{Source}", @" ", @"{Title}"],
-        @"HBDrawerSize":                    NSStringFromSize(NSMakeSize(184, 591)),
         @"HBQueuePauseIfLowSpace":          @YES,
         @"HBQueueMinFreeSpace":             @"2"
         }];
@@ -177,7 +175,7 @@
     [panel setCanChooseFiles:YES];
     [panel setCanChooseDirectories:NO];
     [panel setAllowedFileTypes:@[@"app"]];
-    [panel setMessage:NSLocalizedString(@"Select the desired external application", nil)];
+    [panel setMessage:NSLocalizedString(@"Select the desired external application", @"Preferences -> send to app destination open panel")];
 
     NSString *sendToAppDirectory;
 	if ([[NSUserDefaults standardUserDefaults] stringForKey:@"LastSendToAppDirectory"])
@@ -191,7 +189,7 @@
     [panel setDirectoryURL:[NSURL fileURLWithPath:sendToAppDirectory]];
 
     [panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger result) {
-        if (result == NSOKButton)
+        if (result == NSModalResponseOK)
         {
             NSURL *sendToAppURL = [panel URL];
             NSURL *sendToAppDirectoryURL = [sendToAppURL URLByDeletingLastPathComponent];
@@ -199,9 +197,9 @@
 
             // We set the name of the app to send to in the display field
             NSString *sendToAppName = [[sendToAppURL lastPathComponent] stringByDeletingPathExtension];
-            [fSendEncodeToAppField setStringValue:sendToAppName];
+            [self->fSendEncodeToAppField setStringValue:sendToAppName];
 
-            [[NSUserDefaults standardUserDefaults] setObject:[fSendEncodeToAppField stringValue] forKey:@"HBSendToApp"];
+            [[NSUserDefaults standardUserDefaults] setObject:self->fSendEncodeToAppField.stringValue forKey:@"HBSendToApp"];
         }
     }];
 }
@@ -222,11 +220,11 @@
 {
     if ([representedObject rangeOfString: @"{"].location == 0)
     {
-        return NSRoundedTokenStyle;
+        return NSTokenStyleRounded;
     }
     else
     {
-        return NSPlainTextTokenStyle;
+        return NSTokenStyleNone;
     }
 }
 

@@ -38,9 +38,7 @@
 #include <gst/gst.h>
 #endif
 
-#if !defined(_WIN32)
-#include <libnotify/notify.h>
-#else
+#if defined(_WIN32)
 #include <windows.h>
 #include <io.h>
 #define pipe(phandles)  _pipe (phandles, 4096, _O_BINARY)
@@ -94,7 +92,7 @@ create_builder_or_die(const gchar * name)
 
     GResource *ui_res = ghb_ui_get_resource();
     GBytes *gbytes = g_resource_lookup_data(ui_res,
-                                            "/org/handbrake/ghb/ui/ghb.ui",
+                                            "/fr/handbrake/ghb/ui/ghb.ui",
                                             0, NULL);
     ghb_ui = g_bytes_get_data(gbytes, &data_size);
 
@@ -627,8 +625,11 @@ IoRedirect(signal_user_data_t *ud)
     g_free(str);
     g_free(path);
     g_free(config);
-    // Set encoding to raw.
-    g_io_channel_set_encoding(ud->activity_log, NULL, NULL);
+    if (ud->activity_log != NULL)
+    {
+        // Set encoding to raw.
+        g_io_channel_set_encoding(ud->activity_log, NULL, NULL);
+    }
     // redirect stderr to the writer end of the pipe
 
 #if defined(_WIN32)
@@ -981,9 +982,6 @@ ghb_activate_cb(GApplication * app, signal_user_data_t * ud)
                                 GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(provider);
 
-#if !defined(_WIN32)
-    notify_init("HandBrake");
-#endif
     ghb_resource_init();
     ghb_load_icons();
 
@@ -1330,7 +1328,7 @@ main(int argc, char *argv[])
 
     ghb_ui_register_resource();
     ud = g_malloc0(sizeof(signal_user_data_t));
-    ud->app = gtk_application_new("org.handbrake.ghb",
+    ud->app = gtk_application_new("fr.handbrake.ghb",
                                   G_APPLICATION_NON_UNIQUE |
                                   G_APPLICATION_HANDLES_OPEN);
     // Connect application signals
@@ -1359,9 +1357,6 @@ main(int argc, char *argv[])
         g_io_channel_unref(ud->activity_log);
     ghb_settings_close();
     ghb_resource_free();
-#if !defined(_WIN32)
-    notify_uninit();
-#endif
 
     if (ud->builder != NULL)
         g_object_unref(ud->builder);
