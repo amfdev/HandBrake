@@ -6,9 +6,14 @@ AMF.FETCH.sha256  = ea91c8627fb16eaaf66c9c12b88a9fb8969879c244f782e807d2fb78f8f3
 AMF.FETCH.basename  = amf.tar.gz
 AMF.EXTRACT.tarbase = AMF-1.4.7.0
 
-AMF.FETCH =
 AMF.VERIFY = $(TOUCH.exe) $@
-AMF.EXTRACT = $(TOUCH.exe) $@
 AMF.PATCH = $(TOUCH.exe) $@
 AMF.CONFIGURE = $(TOUCH.exe) $@
 AMF.BUILD = $(TOUCH.exe) $@
+
+define AMF.INSTALL
+	$(RM.exe) -rf $(CONTRIB.build/)include/AMF
+    $(MKDIR.exe) $(CONTRIB.build/)include/AMF
+	$(CP.exe) -R $(AMF.EXTRACT.dir/)amf/public/include/ $(CONTRIB.build/)include/AMF
+    $(TOUCH.exe) $@
+endef
